@@ -22,11 +22,21 @@ class Prive extends Model
     protected $casts = [
         'amount' => 'decimal:2',
         'prive_date' => 'date',
-        'is_approved' => 'boolean'
+        'is_approved' => 'string', // Karena ENUM
     ];
 
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function scopeApproved($query)
+    {
+        return $query->where('is_approved', 'approved');
+    }
+
+    public function scopePending($query)
+    {
+        return $query->where('is_approved', 'pending');
     }
 }

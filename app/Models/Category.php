@@ -18,7 +18,7 @@ class Category extends Model
     ];
 
     protected $casts = [
-        'is_active' => 'boolean'
+        'is_active' => 'string', // Karena ENUM
     ];
 
     public function user()
@@ -33,11 +33,6 @@ class Category extends Model
 
     public function scopeActive($query)
     {
-        return $query->where('is_active', true);
-    }
-
-    public function scopeByType($query, $type)
-    {
-        return $query->where('type', $type);
+        return $query->where('is_active', 'active');
     }
 }

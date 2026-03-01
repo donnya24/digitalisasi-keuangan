@@ -2,59 +2,101 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\ProfileUpdateRequest;
-use Illuminate\Http\RedirectResponse;
+use App\Models\User;
+use App\Models\Business;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Redirect;
-use Illuminate\View\View;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
 
 class ProfileController extends Controller
 {
-    /**
-     * Display the user's profile form.
-     */
-    public function edit(Request $request): View
+    public function index()
     {
-        return view('profile.edit', [
-            'user' => $request->user(),
-        ]);
+        $user = auth()->user();
+        $business = $user->business ?? new Business();
+
+        return view('profile.index', compact('user', 'business'));
     }
 
-    /**
-     * Update the user's profile information.
-     */
-    public function update(ProfileUpdateRequest $request): RedirectResponse
+    public function updateBusiness(Request $request)
     {
-        $request->user()->fill($request->validated());
+        $validator = Validator::make($request->all(), [
+            'business_name' => 'required|string|max:255',
+            'phone' => 'nullable|string|max:20',
+            'address' => 'nullable|string',
+            'city' => 'nullable|string|max:100',
+            'province' => 'nullable|string|max:100',
+            'postal_code' => 'nullable|string|max:10',
+            'opening_hours' => 'nullable|json'
+        ]);
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+        if ($validator->fails()) {
+            return redirect()->back()
+                ->withErrors($validator)
+                ->withInput();
         }
 
-        $request->user()->save();
+        $user = auth()->user();
 
-        return Redirect::route('profile.edit')->with('status', 'profile-updated');
+        Business::updateOrCreate(
+            ['user_id' => $user->id],
+            $request->only([
+                'business_name', 'phone', 'address', 'city',
+                'province', 'postal_code', 'opening_hours'
+            ])
+        );
+
+        return redirect()->route('profile.index')
+            ->with('success', 'Profil usaha berhasil diperbarui');
     }
 
-    /**
-     * Delete the user's account.
-     */
-    public function destroy(Request $request): RedirectResponse
+    public function updateProfile(Request $request)
     {
-        $request->validateWithBag('userDeletion', [
-            'password' => ['required', 'current_password'],
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . auth()->id(),
+            'phone' => 'nullable|string|max:20',
+            'avatar' => 'nullable|image|max:2048' // max 2MB
         ]);
 
-        $user = $request->user();
+        if ($validator->fails()) {
+            return redirect()->back()
+                ->withErrors($validator)
+                ->withInput();
+        }
 
-        Auth::logout();
+        $user = auth()->user();
+        $data = $request->only(['name', 'email', 'phone']);
 
-        $user->delete();
+        if ($request->hasFile('avatar')) {
+            $path = $request->file('avatar')->store('avatars', 'public');
+            $data['avatar'] = $path;
+        }
 
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        $user->update($data);
 
-        return Redirect::to('/');
+        return redirect()->route('profile.index')
+            ->with('success', 'Profil berhasil diperbarui');
+    }
+
+    public function changePassword(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'password' => 'required|string|min:8|confirmed'
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->back()
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        $user = auth()->user();
+        $user->update([
+            'password' => Hash::make($request->password)
+        ]);
+
+        return redirect()->route('profile.index')
+            ->with('success', 'Password berhasil diubah');
     }
 }

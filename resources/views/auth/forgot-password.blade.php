@@ -1,25 +1,79 @@
 <x-guest-layout>
-    <div class="mb-4 text-sm text-gray-600">
-        {{ __('Forgot your password? No problem. Just let us know your email address and we will email you a password reset link that will allow you to choose a new one.') }}
+    <!-- Header -->
+    <div class="auth-header">
+        <div class="mx-auto w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg mb-4">
+            <i class="fas fa-key text-white text-2xl"></i>
+        </div>
+        <h2 class="auth-title">Lupa Password?</h2>
+        <p class="auth-subtitle">Tenang, kami akan bantu Anda mereset password</p>
     </div>
 
     <!-- Session Status -->
-    <x-auth-session-status class="mb-4" :status="session('status')" />
+    @if (session('status'))
+        <div class="alert-success mt-4">
+            <div class="flex items-center">
+                <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                <p class="text-sm text-green-700">{{ session('status') }}</p>
+            </div>
+        </div>
+    @endif
 
-    <form method="POST" action="{{ route('password.email') }}">
+    <!-- Error Messages -->
+    @if ($errors->any())
+        <div class="alert-error mt-4">
+            <div class="flex items-start">
+                <i class="fas fa-exclamation-circle text-red-500 mr-2 mt-0.5"></i>
+                <div class="text-sm text-red-700">
+                    @foreach ($errors->all() as $error)
+                        <p>{{ $error }}</p>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- Info Text -->
+    <div class="mt-6 text-sm text-gray-600 bg-blue-50 p-4 rounded-lg">
+        <div class="flex">
+            <i class="fas fa-info-circle text-blue-500 mr-3 mt-0.5"></i>
+            <p>
+                Masukkan alamat email Anda yang terdaftar. Kami akan mengirimkan tautan untuk mereset password Anda.
+            </p>
+        </div>
+    </div>
+
+    <!-- Forgot Password Form -->
+    <form method="POST" action="{{ route('password.email') }}" class="mt-6 space-y-6">
         @csrf
 
-        <!-- Email Address -->
-        <div>
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email')" required autofocus />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+        <!-- Email -->
+        <div class="input-group">
+            <x-input-label for="email" value="Email" required />
+            <x-text-input 
+                id="email" 
+                type="email" 
+                name="email" 
+                :value="old('email')" 
+                required 
+                autofocus
+                icon="envelope"
+                placeholder="nama@email.com"
+            />
+            <x-input-error :messages="$errors->get('email')" />
         </div>
 
-        <div class="flex items-center justify-end mt-4">
-            <x-primary-button>
-                {{ __('Email Password Reset Link') }}
-            </x-primary-button>
+        <!-- Submit Button -->
+        <button type="submit" class="btn-primary">
+            <i class="fas fa-paper-plane mr-2"></i>
+            Kirim Tautan Reset Password
+        </button>
+
+        <!-- Back to Login -->
+        <div class="text-center">
+            <a href="{{ route('login') }}" class="text-sm text-blue-600 hover:text-blue-800 hover:underline">
+                <i class="fas fa-arrow-left mr-1"></i>
+                Kembali ke halaman login
+            </a>
         </div>
     </form>
 </x-guest-layout>

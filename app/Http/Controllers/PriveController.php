@@ -5,22 +5,23 @@ namespace App\Http\Controllers;
 use App\Models\Prive;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Carbon\Carbon;
 
 class PriveController extends Controller
 {
     public function index(Request $request)
     {
         $query = Prive::where('user_id', auth()->id());
-
+        
         if ($request->has('month')) {
             $query->whereMonth('prive_date', Carbon::parse($request->month)->month)
                   ->whereYear('prive_date', Carbon::parse($request->month)->year);
         }
-
+        
         $prives = $query->orderBy('prive_date', 'desc')->paginate(20);
-
+        
         $totalPrive = Prive::where('user_id', auth()->id())->sum('amount');
-
+        
         return view('prive.index', compact('prives', 'totalPrive'));
     }
 
@@ -54,8 +55,11 @@ class PriveController extends Controller
 
     public function update(Request $request, Prive $prive)
     {
-        $this->authorize('update', $prive);
-
+        // Cek kepemilikan
+        if ($prive->user_id !== auth()->id()) {
+            abort(403);
+        }
+        
         $validator = Validator::make($request->all(), [
             'amount' => 'required|numeric|min:0',
             'description' => 'required|string|max:255',
@@ -76,10 +80,13 @@ class PriveController extends Controller
 
     public function destroy(Prive $prive)
     {
-        $this->authorize('delete', $prive);
-
+        // Cek kepemilikan
+        if ($prive->user_id !== auth()->id()) {
+            abort(403);
+        }
+        
         $prive->delete();
-
+        
         return redirect()->route('prive.index')
             ->with('success', 'Prive berhasil dihapus');
     }

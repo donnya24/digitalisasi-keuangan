@@ -15,7 +15,6 @@ class GoogleController extends Controller
     public function redirectToGoogle()
     {
         return Socialite::driver('google')
-            ->scopes(['profile', 'email'])
             ->redirect();
     }
 
@@ -23,17 +22,17 @@ class GoogleController extends Controller
     {
         try {
             $googleUser = Socialite::driver('google')->user();
-
+            
             // Cek apakah user sudah ada
-            $user = User::where('email', $googleUser->email)->first();
-
+            $user = User::where('email', $googleUser->getEmail())->first();
+            
             if (!$user) {
                 // Buat user baru
                 $user = User::create([
-                    'name' => $googleUser->name,
-                    'email' => $googleUser->email,
-                    'google_id' => $googleUser->id,
-                    'avatar' => $googleUser->avatar,
+                    'name' => $googleUser->getName(),
+                    'email' => $googleUser->getEmail(),
+                    'google_id' => $googleUser->getId(),
+                    'avatar' => $googleUser->getAvatar(),
                     'password' => bcrypt(Str::random(16)),
                     'email_verified_at' => now(),
                 ]);
@@ -48,8 +47,8 @@ class GoogleController extends Controller
                 // Update google_id jika belum ada
                 if (!$user->google_id) {
                     $user->update([
-                        'google_id' => $googleUser->id,
-                        'avatar' => $googleUser->avatar,
+                        'google_id' => $googleUser->getId(),
+                        'avatar' => $googleUser->getAvatar(),
                     ]);
                 }
             }
@@ -60,7 +59,7 @@ class GoogleController extends Controller
             Auth::login($user, true);
 
             return redirect()->intended('/dashboard');
-
+            
         } catch (\Exception $e) {
             Log::error('Google Login Error: ' . $e->getMessage());
             return redirect('/login')->with('error', 'Gagal login dengan Google. Silakan coba lagi.');

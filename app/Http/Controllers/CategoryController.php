@@ -14,12 +14,12 @@ class CategoryController extends Controller
             ->where('type', 'pemasukan')
             ->where('is_active', true)
             ->get();
-
+            
         $expenseCategories = Category::where('user_id', auth()->id())
             ->where('type', 'pengeluaran')
             ->where('is_active', true)
             ->get();
-
+            
         return view('categories.index', compact('incomeCategories', 'expenseCategories'));
     }
 
@@ -44,7 +44,7 @@ class CategoryController extends Controller
             ->where('name', $request->name)
             ->where('type', $request->type)
             ->exists();
-
+            
         if ($exists) {
             return redirect()->back()
                 ->with('error', 'Kategori dengan nama tersebut sudah ada')
@@ -67,8 +67,11 @@ class CategoryController extends Controller
 
     public function update(Request $request, Category $category)
     {
-        $this->authorize('update', $category);
-
+        // Cek kepemilikan
+        if ($category->user_id !== auth()->id()) {
+            abort(403);
+        }
+        
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:100',
             'icon' => 'nullable|string|max:50',
@@ -90,16 +93,19 @@ class CategoryController extends Controller
 
     public function destroy(Category $category)
     {
-        $this->authorize('delete', $category);
-
+        // Cek kepemilikan
+        if ($category->user_id !== auth()->id()) {
+            abort(403);
+        }
+        
         // Cek apakah kategori memiliki transaksi
         if ($category->transactions()->count() > 0) {
             return redirect()->back()
                 ->with('error', 'Kategori tidak dapat dihapus karena masih memiliki transaksi');
         }
-
+        
         $category->delete();
-
+        
         return redirect()->route('categories.index')
             ->with('success', 'Kategori berhasil dihapus');
     }

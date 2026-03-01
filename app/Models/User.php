@@ -1,62 +1,85 @@
 <?php
+// app/Models/User.php
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, Notifiable, HasUuids;
+    use Notifiable, HasUuids;
 
     protected $keyType = 'string';
     public $incrementing = false;
 
     protected $fillable = [
-        'name', 'email', 'password', 'google_id', 'avatar',
-        'email_verified_at', 'last_login', 'is_active'
+        'name',
+        'email',
+        'password',
+        'google_id',
+        'avatar',
+        'email_verified_at',
+        'last_login',
+        'is_active'  // Sekarang menerima 'active', 'inactive', 'suspended'
     ];
 
     protected $hidden = [
-        'password', 'remember_token',
+        'password',
+        'remember_token',
     ];
 
-    protected $casts = [
-        'email_verified_at' => 'datetime',
-        'password' => 'hashed',
-        'last_login' => 'datetime',
-        'is_active' => 'boolean',
-    ];
-
-    public function business()
+    protected function casts(): array
     {
-        return $this->hasOne(Business::class);
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+            'last_login' => 'datetime',
+            // 'is_active' => 'boolean', // HAPUS atau komen baris ini
+        ];
     }
 
-    public function transactions()
+    // Accessor untuk mengecek status aktif
+    public function getIsActiveAttribute($value)
     {
-        return $this->hasMany(Transaction::class);
+        return $value;
     }
 
-    public function categories()
+    // Scope untuk user aktif
+    public function scopeActive($query)
     {
-        return $this->hasMany(Category::class);
+        return $query->where('is_active', 'active');
     }
 
-    public function prives()
+    // Helper methods
+    public function markAsActive(): void
     {
-        return $this->hasMany(Prive::class);
+        $this->update(['is_active' => 'active']);
     }
 
-    public function notifications()
+    public function markAsInactive(): void
     {
-        return $this->hasMany(Notification::class);
+        $this->update(['is_active' => 'inactive']);
     }
 
-    public function dailySummaries()
+    public function markAsSuspended(): void
     {
-        return $this->hasMany(DailySummary::class);
+        $this->update(['is_active' => 'suspended']);
+    }
+
+    public function isActive(): bool
+    {
+        return $this->is_active === 'active';
+    }
+
+    public function isInactive(): bool
+    {
+        return $this->is_active === 'inactive';
+    }
+
+    public function isSuspended(): bool
+    {
+        return $this->is_active === 'suspended';
     }
 }
