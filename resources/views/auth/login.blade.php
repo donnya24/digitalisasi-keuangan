@@ -17,6 +17,18 @@
     
     <style>
         body { font-family: 'Inter', sans-serif; }
+        .input-error {
+            border-color: #ef4444 !important;
+            background-color: #fef2f2 !important;
+        }
+        .input-success {
+            border-color: #10b981 !important;
+        }
+        .btn-disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -57,27 +69,75 @@
 
                 <!-- Error Messages -->
                 @if ($errors->any())
-                    <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                        @foreach ($errors->all() as $error)
-                            <p class="text-sm text-red-600 flex items-center gap-2">
-                                <i class="fas fa-exclamation-circle"></i>
-                                {{ $error }}
-                            </p>
-                        @endforeach
+                    <div class="mb-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg">
+                        <div class="flex items-start">
+                            <i class="fas fa-exclamation-circle text-red-500 mt-0.5 mr-3"></i>
+                            <div>
+                                @foreach ($errors->all() as $error)
+                                    <p class="text-sm text-red-700">{{ $error }}</p>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
+                <!-- Google Login Error Message (Khusus untuk error dari Google) -->
+                @if(session('google_error'))
+                    <div class="mb-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg">
+                        <div class="flex items-start">
+                            <i class="fab fa-google text-red-500 mt-0.5 mr-3"></i>
+                            <div>
+                                <p class="text-sm font-medium text-red-800">Login Google Gagal</p>
+                                <p class="text-sm text-red-700 mt-1">{{ session('google_error') }}</p>
+                                <a href="{{ route('register') }}" class="inline-flex items-center mt-2 text-xs text-red-600 hover:text-red-800 font-medium">
+                                    <i class="fas fa-user-plus mr-1"></i>
+                                    Registrasi Sekarang
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
+                <!-- General Error Message -->
+                @if(session('error'))
+                    <div class="mb-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg">
+                        <div class="flex items-start">
+                            <i class="fas fa-exclamation-circle text-red-500 mt-0.5 mr-3"></i>
+                            <p class="text-sm text-red-700">{{ session('error') }}</p>
+                        </div>
+                    </div>
+                @endif
+
+                <!-- Success Message -->
+                @if(session('success'))
+                    <div class="mb-4 p-4 bg-green-50 border-l-4 border-green-500 rounded-lg">
+                        <div class="flex items-start">
+                            <i class="fas fa-check-circle text-green-500 mt-0.5 mr-3"></i>
+                            <p class="text-sm text-green-700">{{ session('success') }}</p>
+                        </div>
+                    </div>
+                @endif
+
+                @if(session('error'))
+                    <div class="mb-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg">
+                        <div class="flex items-start">
+                            <i class="fas fa-exclamation-circle text-red-500 mt-0.5 mr-3"></i>
+                            <p class="text-sm text-red-700">{{ session('error') }}</p>
+                        </div>
                     </div>
                 @endif
 
                 @if(session('success'))
-                    <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <p class="text-sm text-green-600 flex items-center gap-2">
-                            <i class="fas fa-check-circle"></i>
-                            {{ session('success') }}
-                        </p>
+                    <div class="mb-4 p-4 bg-green-50 border-l-4 border-green-500 rounded-lg">
+                        <div class="flex items-start">
+                            <i class="fas fa-check-circle text-green-500 mt-0.5 mr-3"></i>
+                            <p class="text-sm text-green-700">{{ session('success') }}</p>
+                        </div>
                     </div>
                 @endif
 
                 <!-- Form -->
-                <form method="POST" action="{{ route('login') }}" class="space-y-5">
+                <form method="POST" action="{{ route('login') }}" class="space-y-5" id="loginForm" novalidate>
                     @csrf
                     
                     <!-- Email -->
@@ -90,12 +150,18 @@
                                name="email" 
                                value="{{ old('email') }}"
                                placeholder="nama@email.com"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition @error('email') border-red-500 @enderror"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                                required 
-                               autofocus>
-                        @error('email')
-                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                        @enderror
+                               autofocus
+                               oninput="validateEmail(this)">
+                        <div id="emailError" class="mt-1 text-xs text-red-600 hidden">
+                            <i class="fas fa-exclamation-circle mr-1"></i>
+                            <span id="emailErrorMessage"></span>
+                        </div>
+                        <div id="emailSuccess" class="mt-1 text-xs text-green-600 hidden">
+                            <i class="fas fa-check-circle mr-1"></i>
+                            Format email valid
+                        </div>
                     </div>
 
                     <!-- Password dengan Eye Icon -->
@@ -108,30 +174,34 @@
                                    id="password"
                                    name="password"
                                    placeholder="••••••••"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12 transition @error('password') border-red-500 @enderror"
-                                   required>
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12 transition"
+                                   required
+                                   minlength="8"
+                                   oninput="validatePassword(this)">
                             
                             <!-- Eye Button -->
                             <button type="button" 
                                     @click="show = !show"
-                                    @keydown.enter.prevent
                                     class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600 focus:outline-none transition-colors"
                                     :class="{ 'text-blue-600': show }">
-                                <!-- Eye Open Icon -->
                                 <svg x-show="!show" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linecap="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                     <path stroke-linecap="round" stroke-linecap="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                 </svg>
                                 
-                                <!-- Eye Closed Icon -->
                                 <svg x-show="show" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linecap="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                                 </svg>
                             </button>
                         </div>
-                        @error('password')
-                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                        @enderror
+                        <div id="passwordError" class="mt-1 text-xs text-red-600 hidden">
+                            <i class="fas fa-exclamation-circle mr-1"></i>
+                            <span id="passwordErrorMessage"></span>
+                        </div>
+                        <div id="passwordSuccess" class="mt-1 text-xs text-green-600 hidden">
+                            <i class="fas fa-check-circle mr-1"></i>
+                            Password valid (minimal 8 karakter)
+                        </div>
                     </div>
 
                     <!-- Remember & Forgot -->
@@ -149,6 +219,7 @@
 
                     <!-- Submit -->
                     <button type="submit" 
+                            id="submitButton"
                             class="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-2.5 rounded-lg font-medium hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all transform hover:scale-[1.02]">
                         <i class="fas fa-sign-in-alt mr-2"></i>
                         Masuk
@@ -168,20 +239,176 @@
             <!-- Footer -->
             <p class="text-center text-xs text-gray-500 mt-4">
                 <i class="far fa-copyright mr-1"></i>
-                {{ date('Y') }} Digitalisasi Keuangan UMKM
+                {{ date('Y') }} KeuanganKu. 
+                <a href="{{ route('terms') }}" class="hover:underline">Syarat</a> | 
+                <a href="{{ route('privacy') }}" class="hover:underline">Privasi</a>
             </p>
         </div>
     </div>
 
     <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    
-    <!-- Optional: Fallback jika Alpine.js lambat load -->
     <script>
-        // Menambahkan class untuk mengatasi flash content
-        document.addEventListener('alpine:init', () => {
-            console.log('Alpine.js initialized');
+    // Shortcut Enter untuk submit form login
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.querySelector('form');
+        const inputs = form.querySelectorAll('input');
+        
+        // Submit form saat tekan Enter di input terakhir (password)
+        inputs.forEach(input => {
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    form.submit();
+                }
+            });
         });
-    </script>
+        
+        // Focus otomatis ke input email
+        const emailInput = document.getElementById('email');
+        if (emailInput) {
+            emailInput.focus();
+        }
+    });
+</script>
+    
+    <!-- Validation Script -->
+   <script>
+    function validateEmail(input) {
+        const email = input.value;
+        const emailError = document.getElementById('emailError');
+        const emailSuccess = document.getElementById('emailSuccess');
+        const emailErrorMessage = document.getElementById('emailErrorMessage');
+        
+        // Regex untuk validasi email STANDAR
+        // Mengizinkan: huruf, angka, titik, underscore, @, plus, minus, persen
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        
+        // Karakter yang TIDAK DIIZINKAN (simbol berbahaya)
+        // @ justru DIIZINKAN, jadi tidak masuk daftar ini
+        const invalidCharsRegex = /[;:\"\'\(\)\[\]\{\}\!\#\$\%\^\&\*\+\=\~\`\|\<\>\,\?\/]/g;
+        
+        if (email.length === 0) {
+            input.classList.remove('input-error', 'input-success');
+            emailError.classList.add('hidden');
+            emailSuccess.classList.add('hidden');
+            checkFormValidity();
+            return;
+        }
+        
+        // Cek karakter tidak valid (simbol berbahaya)
+        if (invalidCharsRegex.test(email)) {
+            input.classList.add('input-error');
+            input.classList.remove('input-success');
+            emailError.classList.remove('hidden');
+            emailSuccess.classList.add('hidden');
+            
+            // Tampilkan karakter apa yang tidak valid
+            const invalidChars = email.match(invalidCharsRegex).join(' ');
+            emailErrorMessage.innerText = `Email mengandung karakter tidak valid: ${invalidChars}`;
+            checkFormValidity();
+            return;
+        }
+        
+        // Cek apakah ada @ (WAJIB)
+        if (!email.includes('@')) {
+            input.classList.add('input-error');
+            input.classList.remove('input-success');
+            emailError.classList.remove('hidden');
+            emailSuccess.classList.add('hidden');
+            emailErrorMessage.innerText = 'Email harus mengandung @';
+            checkFormValidity();
+            return;
+        }
+        
+        // Cek format email dengan regex
+        if (!emailRegex.test(email)) {
+            input.classList.add('input-error');
+            input.classList.remove('input-success');
+            emailError.classList.remove('hidden');
+            emailSuccess.classList.add('hidden');
+            
+            if (!email.includes('.')) {
+                emailErrorMessage.innerText = 'Email harus mengandung domain (contoh: .com, .id, .co.id)';
+            } else {
+                emailErrorMessage.innerText = 'Format email tidak valid. Contoh yang benar: nama@domain.com';
+            }
+            checkFormValidity();
+            return;
+        }
+        
+        // Email valid
+        input.classList.remove('input-error');
+        input.classList.add('input-success');
+        emailError.classList.add('hidden');
+        emailSuccess.classList.remove('hidden');
+        checkFormValidity();
+    }
+
+    function validatePassword(input) {
+        const password = input.value;
+        const passwordError = document.getElementById('passwordError');
+        const passwordSuccess = document.getElementById('passwordSuccess');
+        const passwordErrorMessage = document.getElementById('passwordErrorMessage');
+        
+        if (password.length === 0) {
+            input.classList.remove('input-error', 'input-success');
+            passwordError.classList.add('hidden');
+            passwordSuccess.classList.add('hidden');
+            checkFormValidity();
+            return;
+        }
+        
+        if (password.length < 8) {
+            input.classList.add('input-error');
+            input.classList.remove('input-success');
+            passwordError.classList.remove('hidden');
+            passwordSuccess.classList.add('hidden');
+            passwordErrorMessage.innerText = 'Password minimal 8 karakter';
+            checkFormValidity();
+            return;
+        }
+        
+        // Password valid
+        input.classList.remove('input-error');
+        input.classList.add('input-success');
+        passwordError.classList.add('hidden');
+        passwordSuccess.classList.remove('hidden');
+        checkFormValidity();
+    }
+
+    function checkFormValidity() {
+        const email = document.getElementById('email');
+        const password = document.getElementById('password');
+        const submitButton = document.getElementById('submitButton');
+        
+        const emailValid = email.classList.contains('input-success');
+        const passwordValid = password.classList.contains('input-success');
+        
+        if (emailValid && passwordValid) {
+            submitButton.classList.remove('btn-disabled');
+            submitButton.disabled = false;
+        } else {
+            submitButton.classList.add('btn-disabled');
+            submitButton.disabled = true;
+        }
+    }
+
+    // Inisialisasi validasi saat halaman dimuat
+    document.addEventListener('DOMContentLoaded', function() {
+        const email = document.getElementById('email');
+        const password = document.getElementById('password');
+        
+        if (email.value) {
+            validateEmail(email);
+        }
+        
+        if (password.value) {
+            validatePassword(password);
+        }
+        
+        checkFormValidity();
+    });
+</script>
 </body>
 </html>

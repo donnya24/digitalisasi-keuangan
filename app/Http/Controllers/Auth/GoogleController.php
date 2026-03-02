@@ -4,65 +4,64 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Models\Business;
 use Illuminate\Support\Facades\Auth;
-use Laravel\Socialite\Facades\Socialite;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
+use Laravel\Socialite\Facades\Socialite;
+use Exception;
 
 class GoogleController extends Controller
 {
+    /**
+     * Redirect ke Google untuk autentikasi
+     */
     public function redirectToGoogle()
     {
         return Socialite::driver('google')
             ->redirect();
     }
 
+    /**
+     * Handle callback dari Google
+     */
     public function handleGoogleCallback()
     {
         try {
             $googleUser = Socialite::driver('google')->user();
+            $email = $googleUser->getEmail();
             
-            // Cek apakah user sudah ada
-            $user = User::where('email', $googleUser->getEmail())->first();
+            // CEK APAKAH EMAIL SUDAH TERDAFTAR DI DATABASE
+            $existingUser = User::where('email', $email)->first();
             
-            if (!$user) {
-                // Buat user baru
-                $user = User::create([
-                    'name' => $googleUser->getName(),
-                    'email' => $googleUser->getEmail(),
+            if (!$existingUser) {
+                // EMAIL TIDAK TERDAFTAR - Kembali ke login dengan pesan error
+                return redirect()->route('login')
+                    ->with('error', 'Email ' . $email . ' belum terdaftar. Silakan registrasi terlebih dahulu.');
+            }
+            
+            // EMAIL TERDAFTAR - Update data Google dan login
+            if (!$existingUser->google_id) {
+                $existingUser->update([
                     'google_id' => $googleUser->getId(),
                     'avatar' => $googleUser->getAvatar(),
-                    'password' => bcrypt(Str::random(16)),
-                    'email_verified_at' => now(),
-                ]);
-
-                // Buat profil usaha default
-                Business::create([
-                    'user_id' => $user->id,
-                    'business_name' => 'Usaha ' . $user->name,
-                    'business_type' => 'warkop',
+                    'last_login' => now(),
                 ]);
             } else {
-                // Update google_id jika belum ada
-                if (!$user->google_id) {
-                    $user->update([
-                        'google_id' => $googleUser->getId(),
-                        'avatar' => $googleUser->getAvatar(),
-                    ]);
-                }
+                $existingUser->update([
+                    'last_login' => now(),
+                ]);
             }
-
-            // Update last login
-            $user->update(['last_login' => now()]);
-
-            Auth::login($user, true);
-
-            return redirect()->intended('/dashboard');
             
-        } catch (\Exception $e) {
+            // Login user
+            Auth::login($existingUser);
+            
+            return redirect()->intended('/dashboard')
+                ->with('success', 'Selamat datang kembali, ' . $existingUser->name . '!');
+            
+        } catch (Exception $e) {
             Log::error('Google Login Error: ' . $e->getMessage());
-            return redirect('/login')->with('error', 'Gagal login dengan Google. Silakan coba lagi.');
+            
+            return redirect()->route('login')
+                ->with('error', 'Gagal login dengan Google. Silakan coba lagi.');
         }
     }
 }

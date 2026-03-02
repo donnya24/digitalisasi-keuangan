@@ -197,5 +197,26 @@
     </div>
 
     @stack('scripts')
+    @push('scripts')
+<script>
+    // Auto refresh notifikasi setiap 30 detik
+    setInterval(function() {
+        fetch('{{ route("notifications.latest") }}')
+            .then(response => response.json())
+            .then(data => {
+                // Update badge notifikasi
+                const badge = document.querySelector('.fa-bell + span');
+                if (badge) {
+                    if (data.unread_count > 0) {
+                        badge.textContent = data.unread_count;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                }
+            });
+    }, 30000);
+</script>
+@endpush
 </body>
 </html>

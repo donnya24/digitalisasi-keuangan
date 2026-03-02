@@ -13,9 +13,16 @@ class Transaction extends Model
     public $incrementing = false;
 
     protected $fillable = [
-        'user_id', 'category_id', 'type', 'amount', 'description',
-        'transaction_date', 'payment_method', 'reference_number',
-        'notes', 'attachment'
+        'user_id',
+        'category_id',
+        'type',
+        'amount',
+        'description',
+        'transaction_date',
+        'payment_method',
+        'reference_number',
+        'notes',
+        'attachment'
     ];
 
     protected $casts = [

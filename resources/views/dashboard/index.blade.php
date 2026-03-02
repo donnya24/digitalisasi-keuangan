@@ -62,9 +62,26 @@
                 <h3 class="text-sm sm:text-lg font-semibold text-gray-800">Pemasukan 7 Hari</h3>
                 <span class="text-xs sm:text-sm text-gray-500">{{ \Carbon\Carbon::now()->subDays(6)->format('d M') }} - {{ \Carbon\Carbon::now()->format('d M') }}</span>
             </div>
-            <div class="chart-container">
-                <canvas id="incomeChart"></canvas>
-            </div>
+            
+            @if($has7DaysData)
+                <div class="chart-container">
+                    <canvas id="incomeChart"></canvas>
+                </div>
+            @else
+                <div class="flex flex-col items-center justify-center py-8 bg-gray-50 rounded-lg">
+                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                        <i class="fas fa-chart-line text-gray-400 text-2xl"></i>
+                    </div>
+                    <p class="text-sm text-gray-500 mb-1">Belum Ada Data Transaksi</p>
+                    <p class="text-xs text-gray-400 text-center max-w-xs">
+                        Data grafik 7 hari akan muncul setelah Anda mencatat transaksi pemasukan dan pengeluaran.
+                    </p>
+                    <a href="{{ route('transactions.create') }}" 
+                       class="mt-4 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-plus mr-1"></i> Catat Transaksi Pertama
+                    </a>
+                </div>
+            @endif
         </div>
 
         <!-- Grafik Laba 30 Hari -->
@@ -73,9 +90,26 @@
                 <h3 class="text-sm sm:text-lg font-semibold text-gray-800">Laba 30 Hari</h3>
                 <span class="text-xs sm:text-sm text-gray-500">{{ \Carbon\Carbon::now()->subDays(30)->format('d M') }} - {{ \Carbon\Carbon::now()->format('d M') }}</span>
             </div>
-            <div class="chart-container">
-                <canvas id="profitChart"></canvas>
-            </div>
+            
+            @if($hasProfitData)
+                <div class="chart-container">
+                    <canvas id="profitChart"></canvas>
+                </div>
+            @else
+                <div class="flex flex-col items-center justify-center py-8 bg-gray-50 rounded-lg">
+                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                        <i class="fas fa-chart-bar text-gray-400 text-2xl"></i>
+                    </div>
+                    <p class="text-sm text-gray-500 mb-1">Belum Ada Data Laba</p>
+                    <p class="text-xs text-gray-400 text-center max-w-xs">
+                        Data laba 30 hari akan muncul setelah Anda mencatat transaksi pemasukan dan pengeluaran.
+                    </p>
+                    <a href="{{ route('transactions.create') }}" 
+                       class="mt-4 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-plus mr-1"></i> Catat Transaksi Pertama
+                    </a>
+                </div>
+            @endif
         </div>
     </div>
 
@@ -84,38 +118,52 @@
         <!-- Monthly Summary -->
         <div class="lg:col-span-1 bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-6">
             <h3 class="text-sm sm:text-lg font-semibold text-gray-800 mb-4">Ringkasan Bulan {{ \Carbon\Carbon::now()->translatedFormat('F') }}</h3>
-            <div class="space-y-3 sm:space-y-4">
-                <div class="flex justify-between items-center text-xs sm:text-sm">
-                    <span class="text-gray-600">Total Pemasukan</span>
-                    <span class="font-semibold text-green-600">Rp {{ number_format($monthIncome, 0, ',', '.') }}</span>
-                </div>
-                <div class="flex justify-between items-center text-xs sm:text-sm">
-                    <span class="text-gray-600">Total Pengeluaran</span>
-                    <span class="font-semibold text-red-600">Rp {{ number_format($monthExpense, 0, ',', '.') }}</span>
-                </div>
-                <div class="flex justify-between items-center pt-3 border-t text-sm sm:text-base">
-                    <span class="text-gray-800 font-medium">Laba Bulan Ini</span>
-                    <span class="font-bold text-blue-600">Rp {{ number_format($monthProfit, 0, ',', '.') }}</span>
-                </div>
-                <div class="flex justify-between items-center text-xs sm:text-sm">
-                    <span class="text-gray-600">Total Prive</span>
-                    <span class="font-semibold text-purple-600">Rp {{ number_format($monthPrive, 0, ',', '.') }}</span>
-                </div>
+            
+            @if($hasMonthData)
+                <div class="space-y-3 sm:space-y-4">
+                    <div class="flex justify-between items-center text-xs sm:text-sm">
+                        <span class="text-gray-600">Total Pemasukan</span>
+                        <span class="font-semibold text-green-600">Rp {{ number_format($monthIncome, 0, ',', '.') }}</span>
+                    </div>
+                    <div class="flex justify-between items-center text-xs sm:text-sm">
+                        <span class="text-gray-600">Total Pengeluaran</span>
+                        <span class="font-semibold text-red-600">Rp {{ number_format($monthExpense, 0, ',', '.') }}</span>
+                    </div>
+                    <div class="flex justify-between items-center pt-3 border-t text-sm sm:text-base">
+                        <span class="text-gray-800 font-medium">Laba Bulan Ini</span>
+                        <span class="font-bold text-blue-600">Rp {{ number_format($monthProfit, 0, ',', '.') }}</span>
+                    </div>
+                    <div class="flex justify-between items-center text-xs sm:text-sm">
+                        <span class="text-gray-600">Total Prive</span>
+                        <span class="font-semibold text-purple-600">Rp {{ number_format($monthPrive, 0, ',', '.') }}</span>
+                    </div>
 
-                <!-- Progress Bar -->
-                <div class="mt-4">
-                    <div class="flex justify-between text-xs mb-1">
-                        <span>Target Laba</span>
-                        <span>{{ $profitPercentage }}%</span>
+                    <!-- Progress Bar -->
+                    @if($targetProfit > 0)
+                    <div class="mt-4">
+                        <div class="flex justify-between text-xs mb-1">
+                            <span>Target Laba</span>
+                            <span>{{ $profitPercentage }}%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-1.5 sm:h-2">
+                            <div class="bg-blue-600 rounded-full h-1.5 sm:h-2" style="width: {{ $profitPercentage }}%"></div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">
+                            Target: Rp {{ number_format($targetProfit, 0, ',', '.') }}
+                        </p>
                     </div>
-                    <div class="w-full bg-gray-200 rounded-full h-1.5 sm:h-2">
-                        <div class="bg-blue-600 rounded-full h-1.5 sm:h-2" style="width: {{ $profitPercentage }}%"></div>
-                    </div>
-                    <p class="text-xs text-gray-500 mt-2">
-                        Target: Rp {{ number_format($targetProfit, 0, ',', '.') }}
-                    </p>
+                    @endif
                 </div>
-            </div>
+            @else
+                <div class="text-center py-6 text-gray-500">
+                    <i class="fas fa-calendar-alt text-3xl mb-3 text-gray-400"></i>
+                    <p class="text-xs sm:text-sm">Belum ada transaksi bulan ini</p>
+                    <a href="{{ route('transactions.create') }}" 
+                       class="inline-block mt-3 text-xs text-blue-600 hover:underline">
+                        Catat transaksi sekarang
+                    </a>
+                </div>
+            @endif
         </div>
 
         <!-- Recent Transactions -->
@@ -134,6 +182,10 @@
                     <div class="text-center py-6 sm:py-8 text-gray-500">
                         <i class="fas fa-exchange-alt text-3xl sm:text-4xl mb-3"></i>
                         <p class="text-xs sm:text-sm">Belum ada transaksi</p>
+                        <a href="{{ route('transactions.create') }}" 
+                           class="inline-block mt-3 px-4 py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700">
+                            <i class="fas fa-plus mr-1"></i> Tambah Transaksi
+                        </a>
                     </div>
                 @endforelse
             </div>
@@ -153,7 +205,8 @@
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Income Chart (7 days)
+        // Income Chart (7 days) - Hanya jika ada data
+        @if($has7DaysData)
         const incomeCtx = document.getElementById('incomeChart');
         if (incomeCtx) {
             new Chart(incomeCtx.getContext('2d'), {
@@ -224,8 +277,10 @@
                 }
             });
         }
+        @endif
 
-        // Profit Chart (30 days)
+        // Profit Chart (30 days) - Hanya jika ada data
+        @if($hasProfitData)
         const profitCtx = document.getElementById('profitChart');
         if (profitCtx) {
             new Chart(profitCtx.getContext('2d'), {
@@ -275,6 +330,7 @@
                 }
             });
         }
+        @endif
     });
 </script>
 @endpush
