@@ -6,7 +6,7 @@
 @section('content')
 <div class="max-w-2xl mx-auto">
     <div class="bg-white rounded-xl shadow-sm p-6">
-        <form method="POST" action="{{ route('transactions.update', $transaction) }}" class="space-y-6">
+        <form method="POST" action="{{ route('transactions.update', $transaction->id) }}" class="space-y-6">
             @csrf
             @method('PUT')
             
@@ -34,38 +34,41 @@
                     Nama Kategori <span class="text-red-500">*</span>
                 </label>
                 <input type="text" 
-                    name="category_name" 
-                    id="category_name"
-                    value="{{ old('category_name', $transaction->category->name) }}"
-                    placeholder="Contoh: Kopi, Makanan Ringan, Bahan Baku, dll"
-                    required
-                    maxlength="100"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('category_name') border-red-500 @enderror">
+                       name="category_name" 
+                       id="category_name"
+                       value="{{ old('category_name', $transaction->category->name ?? '') }}"
+                       placeholder="Contoh: Kopi, Makanan Ringan, Bahan Baku, dll"
+                       required
+                       maxlength="100"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('category_name') border-red-500 @enderror">
                 @error('category_name')
+                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <!-- Amount - Hanya Angka -->
+            <div>
+                <label for="amount" class="block text-sm font-medium text-gray-700 mb-1">
+                    Jumlah <span class="text-red-500">*</span>
+                </label>
+                <input type="number" 
+                       name="amount" 
+                       id="amount"
+                       value="{{ old('amount', $transaction->amount) }}"
+                       placeholder="0"
+                       min="0"
+                       step="1"
+                       required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('amount') border-red-500 @enderror">
+                @error('amount')
                     <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                 @enderror
                 <p class="text-xs text-gray-500 mt-1">
                     <i class="fas fa-info-circle mr-1"></i>
-                    Masukkan nama kategori sesuai kebutuhan usaha Anda
+                    Masukkan angka saja (contoh: 50000)
                 </p>
             </div>
 
-            <!-- Amount -->
-            <div>
-                <label for="amount" class="block text-sm font-medium text-gray-700 mb-1">
-                    Jumlah (Rp) <span class="text-red-500">*</span>
-                </label>
-                <input type="text" 
-                    name="amount" 
-                    id="amount"
-                    value="{{ old('amount', number_format($transaction->amount, 0, ',', '.')) }}"
-                    placeholder="Rp 0"
-                    required
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('amount') border-red-500 @enderror">
-                @error('amount')
-                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                @enderror
-            </div>
             <!-- Description -->
             <div>
                 <label for="description" class="block text-sm font-medium text-gray-700 mb-1">
@@ -75,6 +78,7 @@
                        name="description" 
                        id="description"
                        value="{{ old('description', $transaction->description) }}"
+                       placeholder="Contoh: Penjualan Kopi, Beli Gula, dll"
                        required
                        maxlength="255"
                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('description') border-red-500 @enderror">
@@ -124,6 +128,7 @@
                 <textarea name="notes" 
                           id="notes" 
                           rows="3"
+                          placeholder="Catatan tambahan (opsional)"
                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">{{ old('notes', $transaction->notes) }}</textarea>
             </div>
 
@@ -141,74 +146,4 @@
         </form>
     </div>
 </div>
-@push('scripts')
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const amountInput = document.getElementById('amount');
-        
-        // Function to format number as Rupiah
-        function formatRupiah(angka, prefix = 'Rp ') {
-            let numberString = angka.replace(/[^,\d]/g, '').toString(),
-                split = numberString.split(','),
-                sisa = split[0].length % 3,
-                rupiah = split[0].substr(0, sisa),
-                ribuan = split[0].substr(sisa).match(/\d{3}/gi);
-                
-            if (ribuan) {
-                let separator = sisa ? '.' : '';
-                rupiah += separator + ribuan.join('.');
-            }
-            
-            rupiah = split[1] != undefined ? rupiah + ',' + split[1] : rupiah;
-            return prefix + rupiah;
-        }
-        
-        // Function to remove formatting and get raw number
-        function getRawNumber(formattedValue) {
-            return formattedValue.replace(/[^0-9]/g, '');
-        }
-        
-        // Format initial value
-        if (amountInput.value) {
-            let rawValue = getRawNumber(amountInput.value);
-            if (rawValue) {
-                amountInput.value = formatRupiah(rawValue);
-            }
-        }
-        
-        // Format on input
-        amountInput.addEventListener('input', function(e) {
-            let rawValue = getRawNumber(this.value);
-            if (rawValue) {
-                this.value = formatRupiah(rawValue);
-            } else {
-                this.value = '';
-            }
-        });
-        
-        // Remove formatting before form submit
-        const form = document.querySelector('form');
-        form.addEventListener('submit', function(e) {
-            let rawValue = getRawNumber(amountInput.value);
-            amountInput.value = rawValue; // Send raw number to server
-        });
-        
-        // Handle backspace and delete properly
-        amountInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Backspace' || e.key === 'Delete') {
-                let rawValue = getRawNumber(this.value);
-                if (rawValue.length > 0) {
-                    rawValue = rawValue.slice(0, -1);
-                    if (rawValue) {
-                        this.value = formatRupiah(rawValue);
-                    } else {
-                        this.value = '';
-                    }
-                }
-                e.preventDefault();
-            }
-        });
-    });
-</script>
-@endpush
 @endsection

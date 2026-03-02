@@ -16,15 +16,13 @@
                     <label class="flex items-center">
                         <input type="radio" name="type" value="pemasukan" 
                                {{ old('type', $type) == 'pemasukan' ? 'checked' : '' }}
-                               class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                               onchange="loadCategories(this.value)">
+                               class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500">
                         <span class="ml-2 text-sm text-gray-700">Pemasukan</span>
                     </label>
                     <label class="flex items-center">
                         <input type="radio" name="type" value="pengeluaran" 
                                {{ old('type', $type) == 'pengeluaran' ? 'checked' : '' }}
-                               class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                               onchange="loadCategories(this.value)">
+                               class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500">
                         <span class="ml-2 text-sm text-gray-700">Pengeluaran</span>
                     </label>
                 </div>
@@ -39,37 +37,43 @@
                     Nama Kategori <span class="text-red-500">*</span>
                 </label>
                 <input type="text" 
-                    name="category_name" 
-                    id="category_name"
-                    value="{{ old('category_name') }}"
-                    placeholder="Contoh: Kopi, Makanan Ringan, Bahan Baku, dll"
-                    required
-                    maxlength="100"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('category_name') border-red-500 @enderror">
+                       name="category_name" 
+                       id="category_name"
+                       value="{{ old('category_name') }}"
+                       placeholder="Contoh: Kopi, Makanan Ringan, Bahan Baku, dll"
+                       required
+                       maxlength="100"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('category_name') border-red-500 @enderror">
                 @error('category_name')
                     <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                 @enderror
                 <p class="text-xs text-gray-500 mt-1">
                     <i class="fas fa-info-circle mr-1"></i>
-                    Masukkan nama kategori sesuai kebutuhan usaha Anda
+                    Kategori akan otomatis tersimpan dan bisa dipakai lagi nanti
                 </p>
             </div>
 
-            <!-- Amount -->
+            <!-- Amount - Hanya Angka -->
             <div>
                 <label for="amount" class="block text-sm font-medium text-gray-700 mb-1">
-                    Jumlah (Rp) <span class="text-red-500">*</span>
+                    Jumlah <span class="text-red-500">*</span>
                 </label>
-                <input type="text" 
-                    name="amount" 
-                    id="amount"
-                    value="{{ old('amount') }}"
-                    placeholder="Rp 0"
-                    required
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('amount') border-red-500 @enderror">
+                <input type="number" 
+                       name="amount" 
+                       id="amount"
+                       value="{{ old('amount') }}"
+                       placeholder="0"
+                       min="0"
+                       step="1"
+                       required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('amount') border-red-500 @enderror">
                 @error('amount')
                     <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                 @enderror
+                <p class="text-xs text-gray-500 mt-1">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Masukkan angka saja (contoh: 50000)
+                </p>
             </div>
 
             <!-- Description -->
@@ -149,82 +153,4 @@
         </form>
     </div>
 </div>
-
-<script>
-function loadCategories(type) {
-    fetch(`/categories/by-type?type=${type}`)
-        .then(response => response.json())
-        .then(data => {
-            const select = document.getElementById('category_id');
-            select.innerHTML = '<option value="">Pilih Kategori</option>';
-            data.forEach(category => {
-                select.innerHTML += `<option value="${category.id}">${category.name}</option>`;
-            });
-        });
-}
-</script>
-@push('scripts')
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const amountInput = document.getElementById('amount');
-        
-        function formatRupiah(angka, prefix = 'Rp ') {
-            let numberString = angka.replace(/[^,\d]/g, '').toString(),
-                split = numberString.split(','),
-                sisa = split[0].length % 3,
-                rupiah = split[0].substr(0, sisa),
-                ribuan = split[0].substr(sisa).match(/\d{3}/gi);
-                
-            if (ribuan) {
-                let separator = sisa ? '.' : '';
-                rupiah += separator + ribuan.join('.');
-            }
-            
-            rupiah = split[1] != undefined ? rupiah + ',' + split[1] : rupiah;
-            return prefix + rupiah;
-        }
-        
-        function getRawNumber(formattedValue) {
-            return formattedValue.replace(/[^0-9]/g, '');
-        }
-        
-        if (amountInput.value) {
-            let rawValue = getRawNumber(amountInput.value);
-            if (rawValue) {
-                amountInput.value = formatRupiah(rawValue);
-            }
-        }
-        
-        amountInput.addEventListener('input', function(e) {
-            let rawValue = getRawNumber(this.value);
-            if (rawValue) {
-                this.value = formatRupiah(rawValue);
-            } else {
-                this.value = '';
-            }
-        });
-        
-        const form = document.querySelector('form');
-        form.addEventListener('submit', function(e) {
-            let rawValue = getRawNumber(amountInput.value);
-            amountInput.value = rawValue;
-        });
-        
-        amountInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Backspace' || e.key === 'Delete') {
-                let rawValue = getRawNumber(this.value);
-                if (rawValue.length > 0) {
-                    rawValue = rawValue.slice(0, -1);
-                    if (rawValue) {
-                        this.value = formatRupiah(rawValue);
-                    } else {
-                        this.value = '';
-                    }
-                }
-                e.preventDefault();
-            }
-        });
-    });
-</script>
-@endpush
 @endsection
