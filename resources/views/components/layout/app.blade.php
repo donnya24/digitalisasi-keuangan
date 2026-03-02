@@ -158,6 +158,9 @@
         </div>
     @endif
 
+    <!-- Logout Confirmation Modal -->
+    <x-modals.logout-confirmation />
+
     <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 

@@ -69,13 +69,11 @@ if (!$user) {
             Pengaturan
         </x-sidebar.nav-link>
         
-        <form method="POST" action="{{ route('logout') }}" class="mt-2">
-            @csrf
-            <button type="submit" class="w-full flex items-center space-x-3 px-4 py-3 text-blue-100 hover:bg-blue-700 rounded-xl transition">
-                <i class="fas fa-sign-out-alt w-5"></i>
-                <span>Logout</span>
-            </button>
-        </form>
+        <!-- Logout Button with Confirmation -->
+        <button onclick="showLogoutModal()" class="w-full flex items-center space-x-3 px-4 py-3 text-blue-100 hover:bg-blue-700 rounded-xl transition">
+            <i class="fas fa-sign-out-alt w-5"></i>
+            <span>Logout</span>
+        </button>
     </nav>
 
     <!-- Footer Navigation (Desktop only) -->
@@ -84,12 +82,10 @@ if (!$user) {
             Pengaturan
         </x-sidebar.nav-link>
         
-        <form method="POST" action="{{ route('logout') }}" class="mt-2">
-            @csrf
-            <button type="submit" class="w-full flex items-center space-x-3 px-4 py-3 text-blue-100 hover:bg-blue-700 rounded-xl transition">
-                <i class="fas fa-sign-out-alt w-5"></i>
-                <span>Logout</span>
-            </button>
-        </form>
+        <!-- Logout Button with Confirmation -->
+        <button onclick="showLogoutModal()" class="w-full flex items-center space-x-3 px-4 py-3 text-blue-100 hover:bg-blue-700 rounded-xl transition mt-2">
+            <i class="fas fa-sign-out-alt w-5"></i>
+            <span>Logout</span>
+        </button>
     </div>
 </aside>
