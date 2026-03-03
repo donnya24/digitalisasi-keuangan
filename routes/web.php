@@ -6,7 +6,6 @@ use App\Http\Controllers\Auth\GoogleController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\ReportController;
-use Illuminate\Http\Request; 
 use App\Http\Controllers\PriveController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ProfileController;
@@ -31,6 +30,14 @@ Route::get('/', function () {
 | Guest Routes (Hanya untuk yang belum login)
 |--------------------------------------------------------------------------
 */
+
+// Reports
+Route::prefix('reports')->name('reports.')->group(function () {
+    Route::get('/', [ReportController::class, 'index'])->name('index');
+    Route::get('/export-pdf', [ReportController::class, 'exportPdf'])->name('export-pdf');
+    Route::get('/print', [ReportController::class, 'print'])->name('print');
+});
+
 Route::middleware('guest')->group(function () {
     // Login Routes
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');

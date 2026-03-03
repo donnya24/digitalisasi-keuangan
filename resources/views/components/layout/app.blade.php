@@ -18,12 +18,15 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+        <!-- SweetAlert2 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <style>
         body { font-family: 'Inter', sans-serif; }
         .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
         .card-hover:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); }
         .chart-container { position: relative; height: 200px; width: 100%; }
-        
+
         /* Mobile bottom navigation */
         .mobile-nav {
             display: none;
@@ -36,13 +39,13 @@
             z-index: 50;
             padding-bottom: env(safe-area-inset-bottom, 0);
         }
-        
+
         /* Desktop sidebar */
         .desktop-sidebar {
             width: 260px;
             transition: transform 0.3s ease;
         }
-        
+
         /* Mobile menu overlay */
         .mobile-menu-overlay {
             display: none;
@@ -51,11 +54,11 @@
             background: rgba(0,0,0,0.5);
             z-index: 40;
         }
-        
+
         .mobile-menu-overlay.active {
             display: block;
         }
-        
+
         /* Responsive breakpoints */
         @media (max-width: 1023px) {
             .desktop-sidebar {
@@ -65,48 +68,47 @@
                 z-index: 45;
                 transition: left 0.3s ease;
             }
-            
+
             .desktop-sidebar.mobile-open {
                 left: 0;
             }
-            
+
             .mobile-nav {
                 display: flex;
             }
-            
+
             main {
                 padding-bottom: 70px;
             }
-            
+
             .floating-action-btn {
                 bottom: 80px;
             }
         }
-        
+
         @media (max-width: 480px) {
             .chart-container {
                 height: 180px;
             }
         }
-        
+
         /* Safe area for notched phones */
-        @@supports (padding-bottom: env(safe-area-inset-bottom)) {
-            .mobile-nav {
-                padding-bottom: env(safe-area-inset-bottom);
-            }
-            
+        .mobile-nav {
+            padding-bottom: env(safe-area-inset-bottom, 0);
+        }
+
             main {
                 padding-bottom: calc(70px + env(safe-area-inset-bottom));
             }
-            
+
             .floating-action-btn {
                 bottom: calc(80px + env(safe-area-inset-bottom));
             }
         }
-        
+
         [x-cloak] { display: none !important; }
     </style>
-    
+
     @stack('styles')
 </head>
 <body class="bg-gray-50">
@@ -126,7 +128,7 @@
                     <button onclick="toggleMobileMenu()" class="lg:hidden p-2 text-gray-600 hover:text-blue-600">
                         <i class="fas fa-bars text-xl"></i>
                     </button>
-                    
+
                     <h2 class="text-xl lg:text-2xl font-semibold text-gray-800">@yield('page-title', 'Dashboard')</h2>
 
                     <div class="flex items-center space-x-3 sm:space-x-4">
@@ -169,10 +171,10 @@
         function toggleMobileMenu() {
             const sidebar = document.getElementById('desktopSidebar');
             const overlay = document.getElementById('mobileMenuOverlay');
-            
+
             sidebar.classList.toggle('mobile-open');
             overlay.classList.toggle('active');
-            
+
             if (sidebar.classList.contains('mobile-open')) {
                 document.body.style.overflow = 'hidden';
             } else {
@@ -190,7 +192,7 @@
             }
         });
     </script>
-    
+
     @stack('scripts')
 </body>
 </html>

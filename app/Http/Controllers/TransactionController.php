@@ -6,6 +6,7 @@ use App\Models\Transaction;
 use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 
@@ -14,52 +15,68 @@ class TransactionController extends Controller
     /**
      * Display a listing of the transactions.
      */
-    public function index(Request $request)
-    {
-        $user = auth()->user();
+/**
+ * Display a listing of the transactions.
+ */
+public function index(Request $request)
+{
+    $user = auth()->user();
+    
+    $query = Transaction::with('category')
+        ->where('user_id', $user->id);
+    
+    // Filter berdasarkan tanggal
+    if ($request->has('start_date') && $request->has('end_date') && $request->start_date && $request->end_date) {
+        $query->whereBetween('transaction_date', [$request->start_date, $request->end_date]);
+    } elseif ($request->has('date') && $request->date) {
+        $query->whereDate('transaction_date', $request->date);
+    }
+    
+    // Filter berdasarkan tipe
+    if ($request->has('type') && $request->type && in_array($request->type, ['pemasukan', 'pengeluaran'])) {
+        $query->where('type', $request->type);
+    }
+    
+    // Filter berdasarkan kategori
+    if ($request->has('category_id') && $request->category_id) {
+        $query->where('category_id', $request->category_id);
+    }
+    
+    // ========== PENCARIAN (DESKRIPSI + KATEGORI) ==========
+    if ($request->has('search') && !empty($request->search)) {
+        $searchTerm = $request->search;
         
-        $query = Transaction::with('category')
-            ->where('user_id', $user->id);
-        
-        // Filter berdasarkan tanggal
-        if ($request->has('start_date') && $request->has('end_date')) {
-            $query->whereBetween('transaction_date', [$request->start_date, $request->end_date]);
-        } elseif ($request->has('date')) {
-            $query->whereDate('transaction_date', $request->date);
-        }
-        
-        // Filter berdasarkan tipe
-        if ($request->has('type') && in_array($request->type, ['pemasukan', 'pengeluaran'])) {
-            $query->where('type', $request->type);
-        }
-        
-        // Filter berdasarkan kategori
-        if ($request->has('category_id')) {
-            $query->where('category_id', $request->category_id);
-        }
-        
-        // Pencarian berdasarkan deskripsi
-        if ($request->has('search')) {
-            $query->where('description', 'like', '%' . $request->search . '%');
-        }
-        
-        $transactions = $query->orderBy('transaction_date', 'desc')
-            ->orderBy('created_at', 'desc')
-            ->paginate(15);
-        
-        // Ambil kategori untuk filter
-        $categories = Category::where('user_id', $user->id)
-            ->where('is_active', 'active')
-            ->orderBy('type')
-            ->orderBy('name')
-            ->get();
-        
-        // Hitung total
-        $totalIncome = $transactions->where('type', 'pemasukan')->sum('amount');
-        $totalExpense = $transactions->where('type', 'pengeluaran')->sum('amount');
-        $balance = $totalIncome - $totalExpense;
-        
-        return view('transactions.index', compact(
+        $query->where(function($q) use ($searchTerm) {
+            // 1. Cari di deskripsi transaksi
+            $q->where('description', 'LIKE', '%' . $searchTerm . '%');
+            
+            // 2. ATAU cari di nama kategori (melalui relasi)
+            $q->orWhereHas('category', function($categoryQuery) use ($searchTerm) {
+                $categoryQuery->where('name', 'LIKE', '%' . $searchTerm . '%');
+            });
+        });
+    }
+    
+    $transactions = $query->orderBy('transaction_date', 'desc')
+        ->orderBy('created_at', 'desc')
+        ->paginate(15)
+        ->withQueryString(); // Penting untuk pagination dengan filter
+    
+    // Ambil kategori untuk filter dropdown
+    $categories = Category::where('user_id', $user->id)
+        ->where('is_active', 'active')
+        ->orderBy('type')
+        ->orderBy('name')
+        ->get();
+    
+    // Hitung total (untuk data yang sudah difilter)
+    $totalIncome = $transactions->where('type', 'pemasukan')->sum('amount');
+    $totalExpense = $transactions->where('type', 'pengeluaran')->sum('amount');
+    $balance = $totalIncome - $totalExpense;
+    
+    // Jika request AJAX, kembalikan hanya partial table
+    if ($request->ajax()) {
+        return view('transactions.partials.table', compact(
             'transactions', 
             'categories', 
             'totalIncome', 
@@ -67,6 +84,15 @@ class TransactionController extends Controller
             'balance'
         ));
     }
+    
+    return view('transactions.index', compact(
+        'transactions', 
+        'categories', 
+        'totalIncome', 
+        'totalExpense', 
+        'balance'
+    ));
+}
 
     /**
      * Show the form for creating a new transaction.
@@ -76,14 +102,7 @@ class TransactionController extends Controller
         $user = auth()->user();
         $type = $request->get('type', 'pemasukan'); // Default pemasukan
         
-        // Ambil kategori untuk referensi (opsional)
-        $categories = Category::where('user_id', $user->id)
-            ->where('type', $type)
-            ->where('is_active', 'active')
-            ->orderBy('name')
-            ->get();
-        
-        return view('transactions.create', compact('categories', 'type'));
+        return view('transactions.create', compact('type'));
     }
 
     /**
@@ -92,6 +111,9 @@ class TransactionController extends Controller
     public function store(Request $request)
     {
         $user = auth()->user();
+        
+        // Bersihkan amount dari format Rupiah (hapus titik)
+        $cleanAmount = $this->cleanAmount($request->amount);
         
         $validator = Validator::make($request->all(), [
             'type' => 'required|in:pemasukan,pengeluaran',
@@ -121,7 +143,11 @@ class TransactionController extends Controller
                 ->withInput();
         }
 
-        // Cari atau buat kategori baru
+        // Log untuk debugging
+        Log::info('STORE - Raw amount from request:', ['amount' => $request->amount]);
+        Log::info('STORE - Cleaned amount:', ['clean' => $cleanAmount]);
+
+        // Cari atau buat kategori baru (tanpa icon dan color)
         $category = Category::firstOrCreate(
             [
                 'user_id' => $user->id,
@@ -129,8 +155,6 @@ class TransactionController extends Controller
                 'type' => $request->type,
             ],
             [
-                'icon' => $this->getIconForCategory($request->category_name, $request->type),
-                'color' => $this->getColorForCategory($request->category_name, $request->type),
                 'is_active' => 'active',
             ]
         );
@@ -138,12 +162,13 @@ class TransactionController extends Controller
         // Generate nomor referensi
         $referenceNumber = 'TRX-' . Carbon::now()->format('Ymd') . '-' . strtoupper(Str::random(6));
 
+        // Simpan dengan amount yang sudah dibersihkan
         Transaction::create([
             'id' => Str::uuid(),
             'user_id' => $user->id,
             'category_id' => $category->id,
             'type' => $request->type,
-            'amount' => $request->amount,
+            'amount' => $cleanAmount,
             'description' => $request->description,
             'transaction_date' => $request->transaction_date,
             'payment_method' => $request->payment_method,
@@ -180,14 +205,7 @@ class TransactionController extends Controller
             abort(403, 'Unauthorized access');
         }
         
-        // Ambil kategori untuk referensi (opsional)
-        $categories = Category::where('user_id', auth()->id())
-            ->where('type', $transaction->type)
-            ->where('is_active', 'active')
-            ->orderBy('name')
-            ->get();
-        
-        return view('transactions.edit', compact('transaction', 'categories'));
+        return view('transactions.edit', compact('transaction'));
     }
 
     /**
@@ -199,6 +217,9 @@ class TransactionController extends Controller
         if ($transaction->user_id !== auth()->id()) {
             abort(403, 'Unauthorized access');
         }
+        
+        // Bersihkan amount dari format Rupiah (hapus titik)
+        $cleanAmount = $this->cleanAmount($request->amount);
         
         $validator = Validator::make($request->all(), [
             'category_name' => 'required|string|max:100',
@@ -225,7 +246,11 @@ class TransactionController extends Controller
                 ->withInput();
         }
 
-        // Cari atau buat kategori baru
+        // Log untuk debugging
+        Log::info('UPDATE - Raw amount from request:', ['amount' => $request->amount]);
+        Log::info('UPDATE - Cleaned amount:', ['clean' => $cleanAmount]);
+
+        // Cari atau buat kategori baru (tanpa icon dan color)
         $category = Category::firstOrCreate(
             [
                 'user_id' => auth()->id(),
@@ -233,16 +258,14 @@ class TransactionController extends Controller
                 'type' => $transaction->type, // type tetap sama
             ],
             [
-                'icon' => $this->getIconForCategory($request->category_name, $transaction->type),
-                'color' => $this->getColorForCategory($request->category_name, $transaction->type),
                 'is_active' => 'active',
             ]
         );
 
-        // Update transaksi
+        // Update transaksi dengan amount yang sudah dibersihkan
         $transaction->update([
             'category_id' => $category->id,
-            'amount' => $request->amount,
+            'amount' => $cleanAmount,
             'description' => $request->description,
             'transaction_date' => $request->transaction_date,
             'payment_method' => $request->payment_method,
@@ -263,94 +286,39 @@ class TransactionController extends Controller
             abort(403, 'Unauthorized access');
         }
         
+        // Simpan informasi untuk log
+        $transactionId = $transaction->id;
+        $transactionDescription = $transaction->description;
+        
+        // Hapus transaksi
         $transaction->delete();
-
+        
+        // Log untuk debugging
+        Log::info('Transaction deleted:', [
+            'id' => $transactionId,
+            'description' => $transactionDescription,
+            'user_id' => auth()->id(),
+            'time' => now()
+        ]);
+        
+        // Redirect kembali ke halaman index dengan pesan sukses
         return redirect()->route('transactions.index')
-            ->with('success', 'Transaksi berhasil dihapus');
+            ->with('success', 'Transaksi "' . $transactionDescription . '" berhasil dihapus');
     }
 
     /**
-     * Helper function untuk mendapatkan icon berdasarkan nama kategori
+     * Helper function untuk membersihkan format Rupiah menjadi angka
      */
-    private function getIconForCategory($categoryName, $type)
+    private function cleanAmount($amount)
     {
-        $categoryName = strtolower($categoryName);
-        
-        $icons = [
-            'kopi' => 'coffee',
-            'minuman' => 'mug-hot',
-            'makanan' => 'utensils',
-            'snack' => 'cookie',
-            'gorengan' => 'cookie',
-            'nasi' => 'bowl-food',
-            'mie' => 'bowl-food',
-            'indomie' => 'bowl-food',
-            'voucher' => 'bolt',
-            'pulsa' => 'phone',
-            'listrik' => 'bolt',
-            
-            // Pengeluaran
-            'bahan baku' => 'cart-shopping',
-            'belanja' => 'cart-shopping',
-            'gula' => 'cart-shopping',
-            'kopi bubuk' => 'cart-shopping',
-            'gas' => 'fire',
-            'listrik' => 'bolt',
-            'air' => 'water',
-            'sewa' => 'house',
-            'gaji' => 'users',
-            'karyawan' => 'users',
-            'internet' => 'wifi',
-            'telepon' => 'phone',
-            'peralatan' => 'box',
-            'perlengkapan' => 'box',
-            'gelas' => 'box',
-            'piring' => 'box',
-            'sedotan' => 'box',
-            'perbaikan' => 'wrench',
-            'servis' => 'wrench',
-            'transport' => 'truck',
-            'bensin' => 'gas-pump',
-            'promosi' => 'bullhorn',
-            'iklan' => 'bullhorn',
-            'pajak' => 'file-contract',
-            'retribusi' => 'file-contract',
-        ];
-        
-        foreach ($icons as $key => $icon) {
-            if (strpos($categoryName, $key) !== false) {
-                return $icon;
-            }
+        if (empty($amount)) {
+            return 0;
         }
         
-        return $type == 'pemasukan' ? 'arrow-down' : 'arrow-up';
-    }
-
-    /**
-     * Helper function untuk mendapatkan color berdasarkan nama kategori
-     */
-    private function getColorForCategory($categoryName, $type)
-    {
-        $categoryName = strtolower($categoryName);
+        // Hapus semua karakter non-digit (titik, spasi, huruf, dll)
+        $cleaned = preg_replace('/[^0-9]/', '', $amount);
         
-        if ($type == 'pemasukan') {
-            if (strpos($categoryName, 'kopi') !== false) return '#4CAF50';
-            if (strpos($categoryName, 'minuman') !== false) return '#8BC34A';
-            if (strpos($categoryName, 'makanan') !== false) return '#FFC107';
-            if (strpos($categoryName, 'snack') !== false) return '#CDDC39';
-            return '#9C27B0'; // default pemasukan
-        } else {
-            if (strpos($categoryName, 'bahan') !== false) return '#F44336';
-            if (strpos($categoryName, 'gas') !== false) return '#FF5722';
-            if (strpos($categoryName, 'listrik') !== false) return '#2196F3';
-            if (strpos($categoryName, 'air') !== false) return '#00BCD4';
-            if (strpos($categoryName, 'sewa') !== false) return '#3F51B5';
-            if (strpos($categoryName, 'gaji') !== false) return '#9C27B0';
-            if (strpos($categoryName, 'internet') !== false) return '#00BCD4';
-            if (strpos($categoryName, 'peralatan') !== false) return '#795548';
-            if (strpos($categoryName, 'transport') !== false) return '#607D8B';
-            if (strpos($categoryName, 'promosi') !== false) return '#E91E63';
-            return '#FF9800'; // default pengeluaran
-        }
+        // Konversi ke integer
+        return (int) $cleaned;
     }
 }

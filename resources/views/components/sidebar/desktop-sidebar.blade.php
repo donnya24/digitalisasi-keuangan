@@ -50,10 +50,6 @@ if (!$user) {
             Transaksi
         </x-sidebar.nav-link>
         
-        <x-sidebar.nav-link href="{{ route('categories.index') }}" :active="request()->routeIs('categories.*')" icon="tags">
-            Kategori
-        </x-sidebar.nav-link>
-        
         <x-sidebar.nav-link href="{{ route('reports.index') }}" :active="request()->routeIs('reports.*')" icon="chart-bar">
             Laporan
         </x-sidebar.nav-link>
