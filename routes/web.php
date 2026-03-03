@@ -9,7 +9,8 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\PriveController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\PageController; 
+use App\Http\Controllers\PageController;
+use App\Http\Controllers\PrivePurposeController;
 
 /*
 |--------------------------------------------------------------------------
@@ -51,12 +52,23 @@ Route::middleware('guest')->group(function () {
     // Sudah include di require __DIR__.'/auth.php';
 });
 
+// Prive Purposes
+Route::resource('prive-purposes', PrivePurposeController::class)->except(['show']);
+Route::put('/prive-purposes/{privePurpose}/toggle', [PrivePurposeController::class, 'toggle'])->name('prive-purposes.toggle');
 /*
 |--------------------------------------------------------------------------
 | Authenticated Routes (Hanya untuk yang sudah login)
 |--------------------------------------------------------------------------
 */
 // Categories AJAX route untuk load kategori berdasarkan tipe
+// Profile
+Route::prefix('profile')->name('profile.')->group(function () {
+    Route::get('/', [ProfileController::class, 'index'])->name('index');
+    Route::put('/', [ProfileController::class, 'updateProfile'])->name('update');
+    Route::put('/business', [ProfileController::class, 'updateBusiness'])->name('update-business');
+    Route::put('/password', [ProfileController::class, 'changePassword'])->name('change-password');
+    Route::delete('/', [ProfileController::class, 'destroy'])->name('destroy'); // Opsional
+});
 /*
 |--------------------------------------------------------------------------
 | Notification Routes

@@ -57,6 +57,10 @@ if (!$user) {
         <x-sidebar.nav-link href="{{ route('prive.index') }}" :active="request()->routeIs('prive.*')" icon="money-bill-wave">
             Prive
         </x-sidebar.nav-link>
+
+        <x-sidebar.nav-link href="{{ route('prive-purposes.index') }}" :active="request()->routeIs('prive-purposes.*')" icon="tags">
+            Keperluan Prive
+        </x-sidebar.nav-link>
     </nav>
 
     <!-- Mobile Navigation - Hanya menu yang tidak ada di bottom nav -->

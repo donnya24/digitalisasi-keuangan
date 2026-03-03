@@ -47,6 +47,12 @@
             </div>
             <span class="text-[11px] mt-1 font-medium {{ request()->routeIs('prive.*') ? 'text-blue-600' : 'text-gray-500' }}">Prive</span>
         </a>
+
+        <a href="{{ route('prive-purposes.index') }}" 
+        class="flex flex-col items-center px-3 py-1 {{ request()->routeIs('prive-purposes.*') ? 'text-blue-600' : 'text-gray-600 hover:text-blue-600' }}">
+            <i class="fas fa-tags text-lg"></i>
+            <span class="text-xs mt-1">Keperluan</span>
+        </a>
     </div>
 </nav>
 

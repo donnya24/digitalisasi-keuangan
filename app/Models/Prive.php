@@ -17,6 +17,7 @@ class Prive extends Model
 
     protected $fillable = [
         'user_id',
+        'purpose_id',        // <-- TAMBAHKAN
         'amount',
         'description',
         'prive_date',
@@ -36,6 +37,14 @@ class Prive extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Relasi ke keperluan prive
+     */
+    public function purposeModel()
+    {
+        return $this->belongsTo(PrivePurpose::class, 'purpose_id');
     }
 
     /**

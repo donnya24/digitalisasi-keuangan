@@ -63,24 +63,25 @@
                 @enderror
             </div>
 
-            <!-- Purpose -->
+            <!-- Purpose - Dropdown dari database -->
             <div>
-                <label for="purpose" class="block text-sm font-medium text-gray-700 mb-1">
-                    Keperluan (Opsional)
+                <label for="purpose_id" class="block text-sm font-medium text-gray-700 mb-1">
+                    Keperluan
                 </label>
-                <select name="purpose" id="purpose"
+                <select name="purpose_id" id="purpose_id"
                         class="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                     <option value="">Pilih Keperluan</option>
-                    <option value="kebutuhan pribadi" {{ old('purpose') == 'kebutuhan pribadi' ? 'selected' : '' }}>Kebutuhan Pribadi</option>
-                    <option value="belanja bulanan" {{ old('purpose') == 'belanja bulanan' ? 'selected' : '' }}>Belanja Bulanan</option>
-                    <option value="pendidikan" {{ old('purpose') == 'pendidikan' ? 'selected' : '' }}>Pendidikan</option>
-                    <option value="kesehatan" {{ old('purpose') == 'kesehatan' ? 'selected' : '' }}>Kesehatan</option>
-                    <option value="transportasi" {{ old('purpose') == 'transportasi' ? 'selected' : '' }}>Transportasi</option>
-                    <option value="hiburan" {{ old('purpose') == 'hiburan' ? 'selected' : '' }}>Hiburan</option>
+                    @foreach($purposes as $purpose)
+                        <option value="{{ $purpose->id }}" {{ old('purpose_id') == $purpose->id ? 'selected' : '' }}>
+                            {{ $purpose->name }}
+                        </option>
+                    @endforeach
                 </select>
-                @error('purpose')
-                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                @enderror
+                <p class="text-xs text-gray-500 mt-1">
+                    <a href="{{ route('prive-purposes.index') }}" class="text-purple-600 hover:underline" target="_blank">
+                        <i class="fas fa-cog mr-1"></i> Kelola Keperluan
+                    </a>
+                </p>
             </div>
 
             <!-- Submit Buttons -->

@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Prive; // <-- TAMBAHKAN IMPORT INI
-use Illuminate\Http\Request; // <-- TAMBAHKAN IMPORT INI
+use App\Models\Prive;
+use App\Models\PrivePurpose;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\DB; // <-- TAMBAHKAN UNTUK DB::raw
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Carbon\Carbon; // <-- TAMBAHKAN IMPORT INI
+use Carbon\Carbon;
 
 class PriveController extends Controller
 {
@@ -18,7 +19,8 @@ class PriveController extends Controller
     {
         $user = auth()->user();
         
-        $query = Prive::where('user_id', $user->id);
+        $query = Prive::with('purposeModel') // <-- TAMBAHKAN WITH
+            ->where('user_id', $user->id);
         
         // Filter berdasarkan bulan
         if ($request->has('month') && $request->month) {
@@ -33,6 +35,11 @@ class PriveController extends Controller
         // Filter berdasarkan status
         if ($request->has('status') && $request->status) {
             $query->where('is_approved', $request->status);
+        }
+        
+        // Filter berdasarkan keperluan
+        if ($request->has('purpose_id') && $request->purpose_id) {
+            $query->where('purpose_id', $request->purpose_id);
         }
         
         $prives = $query->orderBy('prive_date', 'desc')
@@ -51,17 +58,25 @@ class PriveController extends Controller
             ->where('is_approved', 'approved')
             ->sum('amount');
         
-        // Ambil bulan untuk filter - Menggunakan TO_CHAR untuk PostgreSQL
+        // Ambil bulan untuk filter
         $months = Prive::where('user_id', $user->id)
             ->select(DB::raw("DISTINCT TO_CHAR(prive_date, 'YYYY-MM') as month"))
             ->orderBy('month', 'desc')
             ->pluck('month');
         
+        // Ambil semua keperluan untuk filter
+        $purposes = PrivePurpose::where('user_id', $user->id)
+            ->where('is_active', 'active')
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+        
         return view('prive.index', compact(
             'prives', 
             'totalPriveBulanIni', 
             'totalAllPrive', 
-            'months'
+            'months',
+            'purposes' // <-- TAMBAHKAN UNTUK FILTER
         ));
     }
 
@@ -70,7 +85,13 @@ class PriveController extends Controller
      */
     public function create()
     {
-        return view('prive.create');
+        $purposes = PrivePurpose::where('user_id', auth()->id())
+            ->where('is_active', 'active')
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+        
+        return view('prive.create', compact('purposes'));
     }
 
     /**
@@ -87,6 +108,7 @@ class PriveController extends Controller
             'amount' => 'required|numeric|min:0',
             'description' => 'required|string|max:255',
             'prive_date' => 'required|date',
+            'purpose_id' => 'nullable|exists:prive_purposes,id', // <-- TAMBAHKAN VALIDASI
             'purpose' => 'nullable|string|max:100',
         ], [
             'amount.required' => 'Jumlah harus diisi',
@@ -96,6 +118,7 @@ class PriveController extends Controller
             'description.max' => 'Deskripsi maksimal 255 karakter',
             'prive_date.required' => 'Tanggal harus diisi',
             'prive_date.date' => 'Format tanggal tidak valid',
+            'purpose_id.exists' => 'Keperluan yang dipilih tidak valid',
         ]);
 
         if ($validator->fails()) {
@@ -104,14 +127,24 @@ class PriveController extends Controller
                 ->withInput();
         }
 
+        // Jika purpose_id diisi, ambil nama dari tabel purposes
+        $purposeName = null;
+        if ($request->purpose_id) {
+            $purpose = PrivePurpose::find($request->purpose_id);
+            $purposeName = $purpose ? $purpose->name : null;
+        } else {
+            $purposeName = $request->purpose;
+        }
+
         Prive::create([
             'id' => Str::uuid(),
             'user_id' => $user->id,
+            'purpose_id' => $request->purpose_id, // <-- TAMBAHKAN
             'amount' => $cleanAmount,
             'description' => $request->description,
             'prive_date' => $request->prive_date,
-            'purpose' => $request->purpose,
-            'is_approved' => 'approved', // Langsung approved, bisa diubah nanti
+            'purpose' => $purposeName, // <-- SIMPAN NAMA DARI DROPDOWN ATAU INPUT MANUAL
+            'is_approved' => 'approved',
         ]);
 
         return redirect()->route('prive.index')
@@ -127,6 +160,8 @@ class PriveController extends Controller
             abort(403, 'Unauthorized access');
         }
         
+        $prive->load('purposeModel'); // <-- TAMBAHKAN LOAD RELASI
+        
         return view('prive.show', compact('prive'));
     }
 
@@ -139,7 +174,13 @@ class PriveController extends Controller
             abort(403, 'Unauthorized access');
         }
         
-        return view('prive.edit', compact('prive'));
+        $purposes = PrivePurpose::where('user_id', auth()->id())
+            ->where('is_active', 'active')
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+        
+        return view('prive.edit', compact('prive', 'purposes'));
     }
 
     /**
@@ -158,6 +199,7 @@ class PriveController extends Controller
             'amount' => 'required|numeric|min:0',
             'description' => 'required|string|max:255',
             'prive_date' => 'required|date',
+            'purpose_id' => 'nullable|exists:prive_purposes,id', // <-- TAMBAHKAN VALIDASI
             'purpose' => 'nullable|string|max:100',
         ], [
             'amount.required' => 'Jumlah harus diisi',
@@ -167,6 +209,7 @@ class PriveController extends Controller
             'description.max' => 'Deskripsi maksimal 255 karakter',
             'prive_date.required' => 'Tanggal harus diisi',
             'prive_date.date' => 'Format tanggal tidak valid',
+            'purpose_id.exists' => 'Keperluan yang dipilih tidak valid',
         ]);
 
         if ($validator->fails()) {
@@ -175,11 +218,21 @@ class PriveController extends Controller
                 ->withInput();
         }
 
+        // Jika purpose_id diisi, ambil nama dari tabel purposes
+        $purposeName = null;
+        if ($request->purpose_id) {
+            $purpose = PrivePurpose::find($request->purpose_id);
+            $purposeName = $purpose ? $purpose->name : null;
+        } else {
+            $purposeName = $request->purpose;
+        }
+
         $prive->update([
+            'purpose_id' => $request->purpose_id, // <-- TAMBAHKAN
             'amount' => $cleanAmount,
             'description' => $request->description,
             'prive_date' => $request->prive_date,
-            'purpose' => $request->purpose,
+            'purpose' => $purposeName, // <-- UPDATE NAMA
         ]);
 
         return redirect()->route('prive.index')

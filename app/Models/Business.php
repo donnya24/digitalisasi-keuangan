@@ -13,9 +13,16 @@ class Business extends Model
     public $incrementing = false;
 
     protected $fillable = [
-        'user_id', 'business_name', 'business_type', 'phone',
-        'address', 'city', 'province', 'postal_code',
-        'logo', 'opening_hours'
+        'user_id',
+        'business_name',
+        'business_type',
+        'phone',
+        'address',
+        'city',
+        'province',
+        'postal_code',
+        'logo',
+        'opening_hours'
     ];
 
     protected $casts = [
