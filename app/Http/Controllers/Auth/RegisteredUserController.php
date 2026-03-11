@@ -16,76 +16,41 @@ use Illuminate\Support\Str;
 
 class RegisteredUserController extends Controller
 {
-    /**
-     * Display the registration view.
-     */
     public function create(): View
     {
         return view('auth.register');
     }
 
-    /**
-     * Handle an incoming registration request.
-     *
-     * @throws \Illuminate\Validation\ValidationException
-     */
     public function store(Request $request): RedirectResponse
     {
-        // Validasi dengan aturan lengkap
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'business_name' => ['required', 'string', 'max:255'],
-            'email' => [
-                'required', 
-                'string', 
-                'lowercase', 
-                'email', 
-                'max:255', 
-                'unique:users',
-                'regex:/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/'
-            ],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
             'phone' => ['nullable', 'string', 'max:20'],
-            'password' => [
-                'required', 
-                'confirmed', 
-                Rules\Password::min(8)
-                    ->letters()
-                    ->mixedCase()
-                    ->numbers()
-                    ->symbols()
-            ],
-        ], [
-            'name.required' => 'Nama lengkap wajib diisi',
-            'business_name.required' => 'Nama bisnis wajib diisi',
-            'email.required' => 'Email wajib diisi',
-            'email.email' => 'Format email tidak valid',
-            'email.unique' => 'Email sudah terdaftar',
-            'email.regex' => 'Email mengandung karakter tidak valid',
-            'password.required' => 'Password wajib diisi',
-            'password.confirmed' => 'Konfirmasi password tidak cocok',
-            'password.min' => 'Password minimal 8 karakter',
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        // Buat user baru dengan UUID
         $user = User::create([
             'id' => Str::uuid(),
             'name' => $request->name,
             'email' => $request->email,
+            'phone' => $request->phone,
             'password' => Hash::make($request->password),
             'is_active' => 'active',
             'email_verified_at' => now(),
         ]);
 
-        // Buat business untuk user
+        // BUAT BUSINESS OTOMATIS
         Business::create([
+            'id' => Str::uuid(),
             'user_id' => $user->id,
             'business_name' => $request->business_name,
+            'business_type' => 'warkop', // default
             'phone' => $request->phone,
-            'business_type' => 'warkop',
         ]);
 
         event(new Registered($user));
-
         Auth::login($user);
 
         return redirect()->route('dashboard')

@@ -1,5 +1,4 @@
 <?php
-// app/Models/User.php
 
 namespace App\Models;
 
@@ -14,6 +13,11 @@ class User extends Authenticatable
     protected $keyType = 'string';
     public $incrementing = false;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
     protected $fillable = [
         'name',
         'email',
@@ -23,7 +27,7 @@ class User extends Authenticatable
         'avatar',
         'email_verified_at',
         'last_login',
-        'is_active'  // Sekarang menerima 'active', 'inactive', 'suspended'
+        'is_active'
     ];
 
     protected $hidden = [
@@ -37,23 +41,46 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'last_login' => 'datetime',
-            // 'is_active' => 'boolean', // HAPUS atau komen baris ini
         ];
     }
 
-    // Accessor untuk mengecek status aktif
-    public function getIsActiveAttribute($value)
+    // ========== RELASI ==========
+    /**
+     * Relasi ke bisnis (satu user memiliki satu bisnis)
+     */
+    public function business()
     {
-        return $value;
+        return $this->hasOne(Business::class, 'user_id', 'id');
     }
 
-    // Scope untuk user aktif
+    // ========== ACCESSORS ==========
+    /**
+     * Accessor untuk mendapatkan URL Avatar lengkap dari Supabase.
+     * Jika avatar tidak ada, gunakan UI Avatars sebagai fallback.
+     */
+    public function getAvatarUrlAttribute()
+    {
+        if (!$this->avatar) {
+            // Return default avatar
+            return 'https://ui-avatars.com/api/?name=' . urlencode($this->name) . '&background=0D8ABC&color=fff&size=128';
+        }
+
+        $projectRef = env('SUPABASE_PROJECT_REF');
+        if (!$projectRef) {
+            // Fallback jika env tidak ada (tidak mungkin, tapi antisipasi)
+            return 'https://ui-avatars.com/api/?name=' . urlencode($this->name) . '&background=0D8ABC&color=fff&size=128';
+        }
+        // Pastikan bucket 'avatars' adalah public
+        return "https://{$projectRef}.supabase.co/storage/v1/object/public/avatars/{$this->avatar}";
+    }
+
+    // ========== SCOPES ==========
     public function scopeActive($query)
     {
         return $query->where('is_active', 'active');
     }
 
-    // Helper methods
+    // ========== HELPER METHODS ==========
     public function markAsActive(): void
     {
         $this->update(['is_active' => 'active']);

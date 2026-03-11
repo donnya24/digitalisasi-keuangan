@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Dashboard') - {{ config('app.name', 'KeuanganKu') }}</title>
+    {!! PwaKit::head() !!}
 
     <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -18,7 +19,7 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-        <!-- SweetAlert2 CDN -->
+    <!-- SweetAlert2 CDN -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <style>
@@ -93,9 +94,10 @@
         }
 
         /* Safe area for notched phones */
-        .mobile-nav {
-            padding-bottom: env(safe-area-inset-bottom, 0);
-        }
+        @@supports (padding-bottom: env(safe-area-inset-bottom)) {
+            .mobile-nav {
+                padding-bottom: env(safe-area-inset-bottom);
+            }
 
             main {
                 padding-bottom: calc(70px + env(safe-area-inset-bottom));
@@ -148,20 +150,13 @@
     <!-- Mobile Bottom Navigation Component -->
     <x-sidebar.mobile-bottom-nav />
 
+    <!-- Logout Confirmation Modal -->
+    <x-modals.logout-confirmation />
+
     <!-- Floating Action Button -->
     @hasSection('fab')
         @yield('fab')
-    @else
-        <div class="floating-action-btn fixed bottom-20 lg:bottom-6 right-4 sm:right-6">
-            <a href="{{ route('transactions.create') }}"
-               class="w-12 h-12 sm:w-14 sm:h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 flex items-center justify-center transition-all hover:scale-110">
-                <i class="fas fa-plus text-base sm:text-xl"></i>
-            </a>
-        </div>
     @endif
-
-    <!-- Logout Confirmation Modal -->
-    <x-modals.logout-confirmation />
 
     <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -194,5 +189,6 @@
     </script>
 
     @stack('scripts')
+    {!! PwaKit::scripts() !!}
 </body>
 </html>

@@ -5,16 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Login - KeuanganKu</title>
-    
+
     <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    
+
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+
     <style>
         body { font-family: 'Inter', sans-serif; }
         .input-error {
@@ -46,7 +46,7 @@
             <!-- Card -->
             <div class="bg-white rounded-xl shadow-lg p-6 md:p-8">
                 <!-- Google Button -->
-                <a href="{{ route('auth.google') }}" 
+                <a href="{{ route('auth.google') }}"
                    class="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-lg px-4 py-3 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all mb-6">
                     <svg class="w-5 h-5" viewBox="0 0 24 24">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -99,16 +99,6 @@
                 @endif
 
                 <!-- General Error Message -->
-                @if(session('error'))
-                    <div class="mb-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg">
-                        <div class="flex items-start">
-                            <i class="fas fa-exclamation-circle text-red-500 mt-0.5 mr-3"></i>
-                            <p class="text-sm text-red-700">{{ session('error') }}</p>
-                        </div>
-                    </div>
-                @endif
-
-                <!-- Success Message -->
                 @if(session('success'))
                     <div class="mb-4 p-4 bg-green-50 border-l-4 border-green-500 rounded-lg">
                         <div class="flex items-start">
@@ -123,15 +113,6 @@
                         <div class="flex items-start">
                             <i class="fas fa-exclamation-circle text-red-500 mt-0.5 mr-3"></i>
                             <p class="text-sm text-red-700">{{ session('error') }}</p>
-                        </div>
-                    </div>
-                @endif
-
-                @if(session('success'))
-                    <div class="mb-4 p-4 bg-green-50 border-l-4 border-green-500 rounded-lg">
-                        <div class="flex items-start">
-                            <i class="fas fa-check-circle text-green-500 mt-0.5 mr-3"></i>
-                            <p class="text-sm text-green-700">{{ session('success') }}</p>
                         </div>
                     </div>
                 @endif
@@ -139,19 +120,19 @@
                 <!-- Form -->
                 <form method="POST" action="{{ route('login') }}" class="space-y-5" id="loginForm" novalidate>
                     @csrf
-                    
+
                     <!-- Email -->
                     <div>
                         <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
                             <i class="fas fa-envelope text-blue-500 mr-1"></i> Email
                         </label>
-                        <input type="email" 
+                        <input type="email"
                                id="email"
-                               name="email" 
+                               name="email"
                                value="{{ old('email') }}"
                                placeholder="nama@email.com"
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                               required 
+                               required
                                autofocus
                                oninput="validateEmail(this)">
                         <div id="emailError" class="mt-1 text-xs text-red-600 hidden">
@@ -170,7 +151,7 @@
                             <i class="fas fa-lock text-blue-500 mr-1"></i> Password
                         </label>
                         <div class="relative">
-                            <input :type="show ? 'text' : 'password'" 
+                            <input :type="show ? 'text' : 'password'"
                                    id="password"
                                    name="password"
                                    placeholder="••••••••"
@@ -178,9 +159,9 @@
                                    required
                                    minlength="8"
                                    oninput="validatePassword(this)">
-                            
+
                             <!-- Eye Button -->
-                            <button type="button" 
+                            <button type="button"
                                     @click="show = !show"
                                     class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600 focus:outline-none transition-colors"
                                     :class="{ 'text-blue-600': show }">
@@ -188,7 +169,7 @@
                                     <path stroke-linecap="round" stroke-linecap="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                     <path stroke-linecap="round" stroke-linecap="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                 </svg>
-                                
+
                                 <svg x-show="show" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linecap="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                                 </svg>
@@ -207,8 +188,8 @@
                     <!-- Remember & Forgot -->
                     <div class="flex items-center justify-between">
                         <label class="flex items-center cursor-pointer group">
-                            <input type="checkbox" 
-                                   name="remember" 
+                            <input type="checkbox"
+                                   name="remember"
                                    class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer">
                             <span class="ml-2 text-sm text-gray-600 group-hover:text-gray-900 transition-colors">Ingat saya</span>
                         </label>
@@ -218,7 +199,7 @@
                     </div>
 
                     <!-- Submit -->
-                    <button type="submit" 
+                    <button type="submit"
                             id="submitButton"
                             class="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-2.5 rounded-lg font-medium hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all transform hover:scale-[1.02]">
                         <i class="fas fa-sign-in-alt mr-2"></i>
@@ -227,7 +208,7 @@
 
                     <!-- Register -->
                     <p class="text-center text-sm text-gray-600">
-                        Belum punya akun? 
+                        Belum punya akun?
                         <a href="{{ route('register') }}" class="text-blue-600 hover:text-blue-800 hover:underline font-medium">
                             Daftar sekarang
                             <i class="fas fa-arrow-right ml-1 text-xs"></i>
@@ -239,8 +220,8 @@
             <!-- Footer -->
             <p class="text-center text-xs text-gray-500 mt-4">
                 <i class="far fa-copyright mr-1"></i>
-                {{ date('Y') }} KeuanganKu. 
-                <a href="{{ route('terms') }}" class="hover:underline">Syarat</a> | 
+                {{ date('Y') }} KeuanganKu.
+                <a href="{{ route('terms') }}" class="hover:underline">Syarat</a> |
                 <a href="{{ route('privacy') }}" class="hover:underline">Privasi</a>
             </p>
         </div>
@@ -253,7 +234,7 @@
     document.addEventListener('DOMContentLoaded', function() {
         const form = document.querySelector('form');
         const inputs = form.querySelectorAll('input');
-        
+
         // Submit form saat tekan Enter di input terakhir (password)
         inputs.forEach(input => {
             input.addEventListener('keypress', function(e) {
@@ -263,7 +244,7 @@
                 }
             });
         });
-        
+
         // Focus otomatis ke input email
         const emailInput = document.getElementById('email');
         if (emailInput) {
@@ -271,7 +252,7 @@
         }
     });
 </script>
-    
+
     <!-- Validation Script -->
    <script>
     function validateEmail(input) {
@@ -279,15 +260,15 @@
         const emailError = document.getElementById('emailError');
         const emailSuccess = document.getElementById('emailSuccess');
         const emailErrorMessage = document.getElementById('emailErrorMessage');
-        
+
         // Regex untuk validasi email STANDAR
         // Mengizinkan: huruf, angka, titik, underscore, @, plus, minus, persen
         const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-        
+
         // Karakter yang TIDAK DIIZINKAN (simbol berbahaya)
         // @ justru DIIZINKAN, jadi tidak masuk daftar ini
         const invalidCharsRegex = /[;:\"\'\(\)\[\]\{\}\!\#\$\%\^\&\*\+\=\~\`\|\<\>\,\?\/]/g;
-        
+
         if (email.length === 0) {
             input.classList.remove('input-error', 'input-success');
             emailError.classList.add('hidden');
@@ -295,21 +276,21 @@
             checkFormValidity();
             return;
         }
-        
+
         // Cek karakter tidak valid (simbol berbahaya)
         if (invalidCharsRegex.test(email)) {
             input.classList.add('input-error');
             input.classList.remove('input-success');
             emailError.classList.remove('hidden');
             emailSuccess.classList.add('hidden');
-            
+
             // Tampilkan karakter apa yang tidak valid
             const invalidChars = email.match(invalidCharsRegex).join(' ');
             emailErrorMessage.innerText = `Email mengandung karakter tidak valid: ${invalidChars}`;
             checkFormValidity();
             return;
         }
-        
+
         // Cek apakah ada @ (WAJIB)
         if (!email.includes('@')) {
             input.classList.add('input-error');
@@ -320,14 +301,14 @@
             checkFormValidity();
             return;
         }
-        
+
         // Cek format email dengan regex
         if (!emailRegex.test(email)) {
             input.classList.add('input-error');
             input.classList.remove('input-success');
             emailError.classList.remove('hidden');
             emailSuccess.classList.add('hidden');
-            
+
             if (!email.includes('.')) {
                 emailErrorMessage.innerText = 'Email harus mengandung domain (contoh: .com, .id, .co.id)';
             } else {
@@ -336,7 +317,7 @@
             checkFormValidity();
             return;
         }
-        
+
         // Email valid
         input.classList.remove('input-error');
         input.classList.add('input-success');
@@ -350,7 +331,7 @@
         const passwordError = document.getElementById('passwordError');
         const passwordSuccess = document.getElementById('passwordSuccess');
         const passwordErrorMessage = document.getElementById('passwordErrorMessage');
-        
+
         if (password.length === 0) {
             input.classList.remove('input-error', 'input-success');
             passwordError.classList.add('hidden');
@@ -358,7 +339,7 @@
             checkFormValidity();
             return;
         }
-        
+
         if (password.length < 8) {
             input.classList.add('input-error');
             input.classList.remove('input-success');
@@ -368,7 +349,7 @@
             checkFormValidity();
             return;
         }
-        
+
         // Password valid
         input.classList.remove('input-error');
         input.classList.add('input-success');
@@ -381,10 +362,10 @@
         const email = document.getElementById('email');
         const password = document.getElementById('password');
         const submitButton = document.getElementById('submitButton');
-        
+
         const emailValid = email.classList.contains('input-success');
         const passwordValid = password.classList.contains('input-success');
-        
+
         if (emailValid && passwordValid) {
             submitButton.classList.remove('btn-disabled');
             submitButton.disabled = false;
@@ -398,15 +379,15 @@
     document.addEventListener('DOMContentLoaded', function() {
         const email = document.getElementById('email');
         const password = document.getElementById('password');
-        
+
         if (email.value) {
             validateEmail(email);
         }
-        
+
         if (password.value) {
             validatePassword(password);
         }
-        
+
         checkFormValidity();
     });
 </script>

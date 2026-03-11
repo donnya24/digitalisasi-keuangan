@@ -3,101 +3,84 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class LoginController extends Controller
 {
-    protected $redirectTo = '/dashboard';
-    protected $maxAttempts = 5;
-    protected $decayMinutes = 1;
-
-    public function __construct()
-    {
-        $this->middleware('guest')->except('logout');
-    }
-
+    /**
+     * Show the login form.
+     */
     public function showLoginForm()
     {
         return view('auth.login');
     }
 
+    /**
+     * Handle a login request.
+     */
     public function login(Request $request)
-{
-    // Validasi input
-    $validator = Validator::make($request->all(), [
-        'email' => 'required|email|exists:users,email',
-        'password' => 'required|string|min:8',
-    ], [
-        'email.required' => 'Email wajib diisi',
-        'email.email' => 'Format email harus valid (contoh: nama@domain.com)',
-        'email.exists' => 'Email tidak terdaftar dalam sistem',
-        'password.required' => 'Password wajib diisi',
-        'password.min' => 'Password minimal 8 karakter',
-    ]);
+    {
+        // Validasi input
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
+            'password' => 'required|string',
+        ], [
+            'email.required' => 'Email wajib diisi',
+            'email.email'   => 'Format email tidak valid',
+            'password.required' => 'Password wajib diisi',
+        ]);
 
-    if ($validator->fails()) {
+        if ($validator->fails()) {
+            return redirect()->back()
+                ->withErrors($validator)
+                ->withInput($request->except('password'));
+        }
+
+        // Cek rate limiting (max 5 attempt per menit)
+        $throttleKey = $this->throttleKey($request);
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+            throw ValidationException::withMessages([
+                'email' => trans('auth.throttle', ['seconds' => $seconds]),
+            ])->redirectTo(route('login'));
+        }
+
+        // Cek kredensial
+        $credentials = $request->only('email', 'password');
+        $remember = $request->boolean('remember');
+
+        if (Auth::attempt($credentials, $remember)) {
+            // Hapus percobaan yang gagal jika login sukses
+            RateLimiter::clear($throttleKey);
+
+            // Regenerasi session
+            $request->session()->regenerate();
+
+            // Update last login
+            $user = Auth::user();
+            $user->last_login = now();
+            $user->save();
+
+            return redirect()->intended('/dashboard')
+                ->with('success', 'Selamat datang kembali, ' . $user->name . '!');
+        }
+
+        // Jika login gagal, increment hitungan percobaan
+        RateLimiter::hit($throttleKey);
+
+        // Kembalikan error
         return redirect()->back()
-            ->withErrors($validator)
+            ->withErrors(['password' => 'Email atau password salah.'])
             ->withInput($request->except('password'));
     }
 
-    // Cek rate limiting
-    if ($this->hasTooManyLoginAttempts($request)) {
-        $this->fireLockoutEvent($request);
-        
-        $seconds = $this->limiter()->availableIn(
-            $this->throttleKey($request)
-        );
-
-        return redirect()->back()
-            ->withErrors([
-                'email' => "Terlalu banyak percobaan login. Silakan coba lagi dalam {$seconds} detik.",
-            ])
-            ->withInput($request->except('password'));
-    }
-
-    // Cek status user aktif (ENUM)
-    $user = User::where('email', $request->email)->first();
-    
-    if ($user && $user->is_active !== 'active') {
-        $statusMessages = [
-            'inactive' => 'Akun Anda belum aktif. Silakan cek email untuk verifikasi.',
-            'suspended' => 'Akun Anda telah diblokir. Silakan hubungi admin.',
-        ];
-        
-        $message = $statusMessages[$user->is_active] ?? 'Akun tidak dapat digunakan.';
-        
-        return redirect()->back()
-            ->withErrors(['email' => $message])
-            ->withInput($request->except('password'));
-    }
-
-    // Attempt login
-    $credentials = $request->only('email', 'password');
-    $remember = $request->boolean('remember');
-
-    if (Auth::attempt($credentials, $remember)) {
-        $this->clearLoginAttempts($request);
-        $request->session()->regenerate();
-
-        $user = Auth::user();
-        $user->last_login = now();
-        $user->save();
-
-        return redirect()->intended($this->redirectTo)
-            ->with('success', 'Selamat datang kembali, ' . $user->name . '!');
-    }
-
-    $this->incrementLoginAttempts($request);
-
-    return redirect()->back()
-        ->withErrors(['password' => 'Password yang Anda masukkan salah.'])
-        ->withInput($request->except('password'));
-}
-
+    /**
+     * Log the user out.
+     */
     public function logout(Request $request)
     {
         Auth::logout();
@@ -107,5 +90,13 @@ class LoginController extends Controller
 
         return redirect('/')
             ->with('success', 'Anda berhasil logout');
+    }
+
+    /**
+     * Get the throttle key for the given request.
+     */
+    protected function throttleKey(Request $request)
+    {
+        return strtolower($request->input('email')) . '|' . $request->ip();
     }
 }

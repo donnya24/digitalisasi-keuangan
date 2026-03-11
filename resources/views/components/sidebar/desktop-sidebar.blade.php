@@ -27,18 +27,26 @@ if (!$user) {
         </div>
     </div>
 
-    <!-- User Info -->
-    <div class="p-6 border-b border-blue-700">
-        <div class="flex items-center space-x-3">
-            <div class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center border-2 border-white flex-shrink-0">
-                <span class="text-xl font-bold">{{ substr($user->name, 0, 1) }}</span>
-            </div>
-            <div class="min-w-0">
-                <p class="font-semibold truncate">{{ $user->name }}</p>
-                <p class="text-xs text-blue-200 truncate">{{ $user->business->business_name ?? 'Warkop' }}</p>
-            </div>
+<!-- User Info -->
+<div class="p-6 border-b border-blue-700">
+    <div class="flex items-center space-x-3">
+        <div class="w-12 h-12 rounded-full overflow-hidden bg-blue-600 flex items-center justify-center border-2 border-white flex-shrink-0">
+            @if(Auth::user()->avatar)
+                <img src="{{ Auth::user()->avatar_url }}" 
+                     alt="{{ Auth::user()->name }}" 
+                     class="w-full h-full object-cover">
+            @else
+                <span class="text-xl font-bold text-white">
+                    {{ substr(Auth::user()->name, 0, 1) }}
+                </span>
+            @endif
+        </div>
+        <div class="min-w-0">
+            <p class="font-semibold text-white truncate">{{ Auth::user()->name }}</p>
+            <p class="text-xs text-blue-200 truncate">{{ Auth::user()->business->business_name ?? 'Warkop' }}</p>
         </div>
     </div>
+</div>
 
     <!-- Desktop Navigation - Hanya muncul di layar besar -->
     <nav class="hidden lg:block flex-1 px-4 py-6 space-y-2">
@@ -65,7 +73,7 @@ if (!$user) {
 
     <!-- Mobile Navigation - Hanya menu yang tidak ada di bottom nav -->
     <nav class="lg:hidden flex-1 px-4 py-6 space-y-2">
-        <x-sidebar.nav-link href="{{ route('profile.index') }}" :active="request()->routeIs('profile.*')" icon="user-cog">
+        <x-sidebar.nav-link href="{{ route('setting.index') }}" :active="request()->routeIs('setting.*')" icon="user-cog">
             Pengaturan
         </x-sidebar.nav-link>
         
@@ -78,7 +86,7 @@ if (!$user) {
 
     <!-- Footer Navigation (Desktop only) -->
     <div class="p-4 border-t border-blue-700 hidden lg:block">
-        <x-sidebar.nav-link href="{{ route('profile.index') }}" :active="request()->routeIs('profile.*')" icon="user-cog">
+        <x-sidebar.nav-link href="{{ route('setting.index') }}" :active="request()->routeIs('setting.*')" icon="user-cog">
             Pengaturan
         </x-sidebar.nav-link>
         

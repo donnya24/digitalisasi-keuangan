@@ -448,25 +448,33 @@ class DashboardController extends Controller
             );
         }
         
-        // ========== 5. CEK SALDO MENIPIS ==========
+        // ========== 5. CEK SALDO MENIPIS (DENGAN PENCEGAHAN DUPLIKASI) ==========
         $lowBalanceThreshold = config('business.alerts.low_balance', 500000);
         if ($currentBalance < $lowBalanceThreshold && $currentBalance > 0) {
-            Notification::updateOrCreate(
-                [
-                    'user_id' => $userId,
-                    'type' => 'low_balance',
-                    'created_at' => Carbon::today(),
-                ],
-                [
-                    'title' => '⚠️ Saldo Menipis',
-                    'message' => 'Saldo usaha Anda tinggal Rp ' . number_format($currentBalance, 0, ',', '.'),
-                    'is_read' => 'unread',
-                    'data' => json_encode([
-                        'balance' => $currentBalance,
-                        'threshold' => $lowBalanceThreshold,
-                    ]),
-                ]
-            );
+            // Cek apakah sudah ada notifikasi serupa dalam 3 hari terakhir
+            $recentNotification = Notification::where('user_id', $userId)
+                ->where('type', 'low_balance')
+                ->whereDate('created_at', '>=', Carbon::now()->subDays(3))
+                ->exists();
+                
+            if (!$recentNotification) {
+                Notification::updateOrCreate(
+                    [
+                        'user_id' => $userId,
+                        'type' => 'low_balance',
+                        'created_at' => Carbon::today(),
+                    ],
+                    [
+                        'title' => '⚠️ Saldo Menipis',
+                        'message' => 'Saldo usaha Anda tinggal Rp ' . number_format($currentBalance, 0, ',', '.'),
+                        'is_read' => 'unread',
+                        'data' => json_encode([
+                            'balance' => $currentBalance,
+                            'threshold' => $lowBalanceThreshold,
+                        ]),
+                    ]
+                );
+            }
         }
         
         // ========== 6. CEK PENCAPAIAN TARGET ==========

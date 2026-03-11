@@ -22,11 +22,6 @@ class Business extends Model
         'province',
         'postal_code',
         'logo',
-        'opening_hours'
-    ];
-
-    protected $casts = [
-        'opening_hours' => 'array'
     ];
 
     public function user()

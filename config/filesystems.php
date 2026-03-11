@@ -38,6 +38,15 @@ return [
             'report' => false,
         ],
 
+         'supabase' => [
+        'driver' => 'supabase',
+        'key' => env('SUPABASE_SERVICE_ROLE_KEY'),
+        'bucket' => env('SUPABASE_STORAGE_BUCKET'),
+        'endpoint' => env('SUPABASE_STORAGE_ENDPOINT'),
+        'public' => true,
+        'defaultUrlGeneration' => 'public',
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
