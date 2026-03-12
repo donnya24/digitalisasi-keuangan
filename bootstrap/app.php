@@ -1,8 +1,10 @@
 <?php
+// bootstrap/app.php
 
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,8 +14,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Tambahkan baris ini - trust semua proxies
+        // Trust semua proxies (WAJIB UNTUK RAILWAY)
         $middleware->trustProxies(at: '*');
+        
+        // Tambahkan middleware ke grup web
+        $middleware->web(append: [
+            \App\Http\Middleware\HttpsProtocol::class, // Akan kita buat
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

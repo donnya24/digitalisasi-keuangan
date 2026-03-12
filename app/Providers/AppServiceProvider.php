@@ -1,78 +1,31 @@
 <?php
+// app/Providers/AppServiceProvider.php
 
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Cache\RateLimiting\Limit;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\RateLimiter;
-use App\Models\Notification;
-use Illuminate\Support\Facades\View;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\URL; // tambahkan ini
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\Config;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
-    public function register(): void
+    public function boot(): void
     {
-        //
-    }
-
-    /**
-     * Bootstrap any application services.
-     */
-    public function boot()
-    {
-        // Force HTTPS (penting jika menggunakan ngrok / production HTTPS)
-        if (app()->environment('local')) {
-            URL::forceScheme('https');
+        // PAKSA HTTPS - Metode 1
+        URL::forceScheme('https');
+        
+        // PAKSA HTTPS - Metode 2 (override config)
+        if ($this->app->environment('production')) {
+            $this->app['request']->server->set('HTTPS', 'on');
+            
+            // Paksa session menggunakan HTTPS
+            Config::set('session.secure', true);
+            Config::set('session.same_site', 'none'); // Ganti ke 'none' untuk cross-site
+            Config::set('session.domain', '.railway.app');
+            
+            // Paksa cookie menggunakan HTTPS
+            Config::set('app.url', 'https://digitalisasi-keuangan-production.up.railway.app');
+            Config::set('app.asset_url', 'https://digitalisasi-keuangan-production.up.railway.app');
         }
-
-        RateLimiter::for('login', function (Request $request) {
-            return Limit::perMinute(5)->by($request->input('email').'|'.$request->ip());
-        });
-
-        // Menggunakan view composer untuk layout app
-        View::composer('components.layout.app', function ($view) {
-            if (Auth::check()) {
-                $userId = Auth::id();
-
-                // Ambil notifikasi terbaru
-                $notifications = Notification::where('user_id', $userId)
-                    ->orderBy('created_at', 'desc')
-                    ->limit(5)
-                    ->get()
-                    ->map(function ($notification) {
-                        return [
-                            'id' => $notification->id,
-                            'type' => $notification->type,
-                            'icon' => $notification->icon,
-                            'title' => $notification->title,
-                            'message' => $notification->message,
-                            'time' => $notification->formatted_time,
-                            'bg_color' => $notification->bg_color,
-                            'text_color' => $notification->text_color,
-                            'is_read' => $notification->is_read === 'read',
-                        ];
-                    });
-
-                $unreadNotifications = Notification::where('user_id', $userId)
-                    ->where('is_read', 'unread')
-                    ->count();
-
-                $view->with([
-                    'notifications' => $notifications,
-                    'unreadNotifications' => $unreadNotifications,
-                ]);
-            } else {
-                $view->with([
-                    'notifications' => collect(),
-                    'unreadNotifications' => 0,
-                ]);
-            }
-        });
     }
 }
