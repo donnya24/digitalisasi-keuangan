@@ -16,10 +16,16 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         // Trust semua proxies (WAJIB UNTUK RAILWAY)
         $middleware->trustProxies(at: '*');
-        
+
         // Tambahkan middleware ke grup web
         $middleware->web(append: [
-            \App\Http\Middleware\HttpsProtocol::class, // Akan kita buat
+            \App\Http\Middleware\HttpsProtocol::class,
+            \App\Http\Middleware\VerifyCsrfToken::class,
+        ]);
+
+        // Alias middleware (opsional)
+        $middleware->alias([
+            'csrf' => \App\Http\Middleware\VerifyCsrfToken::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
