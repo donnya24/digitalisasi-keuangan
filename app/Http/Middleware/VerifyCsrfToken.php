@@ -8,6 +8,6 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken as Middleware;
 class VerifyCsrfToken extends Middleware
 {
     protected $except = [
-        '*', // NONAKTIFKAN SEMUA CSRF!
+        // KOSONGKAN - jangan ada 'login' di sini!
     ];
 }
