@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Transaction;
 use App\Models\DailySummary;
 use App\Models\Prive;
-use App\Models\Notification;
 use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 
@@ -20,7 +19,7 @@ class DashboardController extends Controller
         $userId = $user->id;
         $today = Carbon::now('Asia/Jakarta')->toDateString();
         $yesterday = Carbon::now('Asia/Jakarta')->subDay()->toDateString();
-        
+
         // ========== CACHE KEY UNTUK SETIAP QUERY ==========
         $cacheKeyTodayIncome = "dashboard.{$userId}.today_income";
         $cacheKeyTodayExpense = "dashboard.{$userId}.today_expense";
@@ -30,10 +29,10 @@ class DashboardController extends Controller
         $cacheKeyLast7Days = "dashboard.{$userId}.last_7_days";
         $cacheKeyLast30Days = "dashboard.{$userId}.last_30_days";
         $cacheKeyMonthStats = "dashboard.{$userId}.month_stats";
-        
+
         // Cache time: 5 menit (300 detik)
         $cacheTime = 300;
-        
+
         // ========== DATA STATISTIK HARI INI (CACHED) ==========
         $todayIncome = Cache::remember($cacheKeyTodayIncome, $cacheTime, function() use ($userId, $today) {
             return (float) Transaction::where('user_id', $userId)
@@ -41,16 +40,16 @@ class DashboardController extends Controller
                 ->whereDate('transaction_date', $today)
                 ->sum('amount');
         });
-        
+
         $todayExpense = Cache::remember($cacheKeyTodayExpense, $cacheTime, function() use ($userId, $today) {
             return (float) Transaction::where('user_id', $userId)
                 ->where('type', 'pengeluaran')
                 ->whereDate('transaction_date', $today)
                 ->sum('amount');
         });
-        
+
         $todayProfit = $todayIncome - $todayExpense;
-        
+
         // Data kemarin (cached)
         $yesterdayIncome = Cache::remember($cacheKeyYesterdayIncome, $cacheTime, function() use ($userId, $yesterday) {
             return (float) Transaction::where('user_id', $userId)
@@ -58,50 +57,50 @@ class DashboardController extends Controller
                 ->whereDate('transaction_date', $yesterday)
                 ->sum('amount');
         });
-        
+
         $yesterdayExpense = Cache::remember($cacheKeyYesterdayExpense, $cacheTime, function() use ($userId, $yesterday) {
             return (float) Transaction::where('user_id', $userId)
                 ->where('type', 'pengeluaran')
                 ->whereDate('transaction_date', $yesterday)
                 ->sum('amount');
         });
-        
+
         $yesterdayProfit = $yesterdayIncome - $yesterdayExpense;
-        
+
         // Hitung persentase perubahan
         $incomeChange = $this->calculatePercentageChange($yesterdayIncome, $todayIncome);
         $expenseChange = $this->calculatePercentageChange($yesterdayExpense, $todayExpense);
         $profitChange = $this->calculatePercentageChange($yesterdayProfit, $todayProfit);
-        
+
         $incomeArrow = $incomeChange >= 0 ? 'up' : 'down';
         $expenseArrow = $expenseChange >= 0 ? 'up' : 'down';
         $profitArrow = $profitChange >= 0 ? 'up' : 'down';
-        
+
         // Saldo usaha (cached - lebih lama)
         $currentBalance = Cache::remember($cacheKeyCurrentBalance, 600, function() use ($userId) {
             return $this->calculateCurrentBalance($userId);
         });
-        
+
         // ========== DATA GRAFIK 7 HARI TERAKHIR (CACHED) ==========
         $cached7Days = Cache::remember($cacheKeyLast7Days, $cacheTime, function() use ($userId) {
             $chartLabels = [];
             $incomeData = [];
             $expenseData = [];
-            
+
             for ($i = 6; $i >= 0; $i--) {
                 $date = Carbon::now('Asia/Jakarta')->subDays($i)->toDateString();
                 $dayData = DailySummary::where('user_id', $userId)
                     ->where('date', $date)
                     ->first();
-                    
+
                 $dayIncome = (float) ($dayData->total_income ?? 0);
                 $dayExpense = (float) ($dayData->total_expense ?? 0);
-                
+
                 $chartLabels[] = Carbon::parse($date)->translatedFormat('D');
                 $incomeData[] = $dayIncome;
                 $expenseData[] = $dayExpense;
             }
-            
+
             return [
                 'labels' => $chartLabels,
                 'income' => $incomeData,
@@ -109,26 +108,26 @@ class DashboardController extends Controller
                 'has_data' => collect($incomeData)->sum() > 0 || collect($expenseData)->sum() > 0,
             ];
         });
-        
+
         $chartLabels = $cached7Days['labels'];
         $incomeData = $cached7Days['income'];
         $expenseData = $cached7Days['expense'];
         $has7DaysData = $cached7Days['has_data'];
-        
+
         // ========== DATA GRAFIK LABA 30 HARI (CACHED) ==========
         $cached30Days = Cache::remember($cacheKeyLast30Days, 600, function() use ($userId) {
             $profitLabels = [];
             $profitData = [];
             $hasData = false;
-            
+
             $dailyProfits = DailySummary::where('user_id', $userId)
                 ->where('date', '>=', Carbon::now('Asia/Jakarta')->subDays(30))
                 ->orderBy('date')
                 ->get();
-            
+
             if ($dailyProfits->isNotEmpty() && $dailyProfits->sum('net_profit') != 0) {
                 $hasData = true;
-                
+
                 // Jika data kurang dari 7, tampilkan semua
                 if ($dailyProfits->count() <= 7) {
                     foreach ($dailyProfits as $item) {
@@ -146,40 +145,40 @@ class DashboardController extends Controller
                     }
                 }
             }
-            
+
             return [
                 'labels' => $profitLabels,
                 'data' => $profitData,
                 'has_data' => $hasData,
             ];
         });
-        
+
         $profitLabels = $cached30Days['labels'];
         $profitData = $cached30Days['data'];
         $hasProfitData = $cached30Days['has_data'];
-        
+
         // ========== DATA BULAN INI (CACHED) ==========
         $cachedMonthStats = Cache::remember($cacheKeyMonthStats, 600, function() use ($userId) {
             $monthStart = Carbon::now('Asia/Jakarta')->startOfMonth()->toDateString();
             $monthEnd = Carbon::now('Asia/Jakarta')->endOfMonth()->toDateString();
-            
+
             $monthIncome = (float) Transaction::where('user_id', $userId)
                 ->where('type', 'pemasukan')
                 ->whereBetween('transaction_date', [$monthStart, $monthEnd])
                 ->sum('amount');
-                
+
             $monthExpense = (float) Transaction::where('user_id', $userId)
                 ->where('type', 'pengeluaran')
                 ->whereBetween('transaction_date', [$monthStart, $monthEnd])
                 ->sum('amount');
-                
+
             $monthProfit = $monthIncome - $monthExpense;
-            
+
             $monthPrive = (float) Prive::where('user_id', $userId)
                 ->whereBetween('prive_date', [$monthStart, $monthEnd])
                 ->where('is_approved', 'approved')
                 ->sum('amount');
-            
+
             return [
                 'income' => $monthIncome,
                 'expense' => $monthExpense,
@@ -188,53 +187,29 @@ class DashboardController extends Controller
                 'has_data' => $monthIncome > 0 || $monthExpense > 0,
             ];
         });
-        
+
         $monthIncome = $cachedMonthStats['income'];
         $monthExpense = $cachedMonthStats['expense'];
         $monthProfit = $cachedMonthStats['profit'];
         $monthPrive = $cachedMonthStats['prive'];
         $hasMonthData = $cachedMonthStats['has_data'];
-        
+
         // Target laba bulanan (dari config)
         $targetProfit = config('business.target_profit', 10000000);
         $profitPercentage = $targetProfit > 0 ? min(100, round(($monthProfit / $targetProfit) * 100)) : 0;
-        
+
         // ========== GENERATE DAN SIMPAN NOTIFIKASI KE DATABASE ==========
         $this->generateAndSaveNotifications(
-            $userId, 
-            $today, 
-            $yesterday, 
-            $todayIncome, 
-            $todayExpense, 
-            $currentBalance, 
-            $monthProfit, 
+            $userId,
+            $today,
+            $yesterday,
+            $todayIncome,
+            $todayExpense,
+            $currentBalance,
+            $monthProfit,
             $targetProfit
         );
-        
-        // ========== AMBIL NOTIFIKASI DARI DATABASE ==========
-        $notifications = Notification::where('user_id', $userId)
-            ->where('is_read', 'unread')
-            ->orderBy('created_at', 'desc')
-            ->limit(5)
-            ->get()
-            ->map(function ($notification) {
-                return [
-                    'id' => $notification->id,
-                    'type' => $notification->type,
-                    'icon' => $notification->icon,
-                    'title' => $notification->title,
-                    'message' => $notification->message,
-                    'time' => $notification->formatted_time,
-                    'bg_color' => $notification->bg_color,
-                    'text_color' => $notification->text_color,
-                    'is_read' => $notification->is_read === 'read',
-                ];
-            });
 
-        $unreadNotifications = Notification::where('user_id', $userId)
-            ->where('is_read', 'unread')
-            ->count();
-            
         // ========== TRANSAKSI TERBARU ==========
         $recentTransactions = Transaction::with('category')
             ->where('user_id', $userId)
@@ -244,7 +219,7 @@ class DashboardController extends Controller
             ->get()
             ->map(function ($transaction) {
                 $categoryIcon = $transaction->category->icon ?? 'tag';
-                
+
                 return [
                     'id' => $transaction->id,
                     'description' => $transaction->description,
@@ -256,7 +231,10 @@ class DashboardController extends Controller
                     'time_ago' => $this->timeAgo($transaction->created_at),
                 ];
             });
-        
+
+        // ⚠️ NOTIFIKASI TIDAK DIKIRIM DARI CONTROLLER!
+        // View Composer yang akan menangani notifikasi
+
         return view('dashboard.index', compact(
             'todayIncome',
             'todayExpense',
@@ -282,9 +260,8 @@ class DashboardController extends Controller
             'hasMonthData',
             'targetProfit',
             'profitPercentage',
-            'recentTransactions',
-            'notifications',
-            'unreadNotifications'
+            'recentTransactions'
+            // 👆 'notifications' dan 'unreadNotifications' TIDAK ADA!
         ));
     }
 
@@ -307,15 +284,15 @@ class DashboardController extends Controller
         $totalIncome = (float) Transaction::where('user_id', $userId)
             ->where('type', 'pemasukan')
             ->sum('amount');
-            
+
         $totalExpense = (float) Transaction::where('user_id', $userId)
             ->where('type', 'pengeluaran')
             ->sum('amount');
-            
+
         $totalPrive = (float) Prive::where('user_id', $userId)
             ->where('is_approved', 'approved')
             ->sum('amount');
-            
+
         return $totalIncome - $totalExpense - $totalPrive;
     }
 
@@ -326,11 +303,11 @@ class DashboardController extends Controller
     {
         // Cek apakah user punya data transaksi sama sekali
         $hasAnyTransaction = Transaction::where('user_id', $userId)->exists();
-        
+
         if (!$hasAnyTransaction) {
             return; // Jika tidak ada transaksi, jangan buat notifikasi
         }
-        
+
         // ========== 1. CEK LABA MENURUN ==========
         $todaySummary = DailySummary::where('user_id', $userId)
             ->where('date', $today)
@@ -338,15 +315,15 @@ class DashboardController extends Controller
         $yesterdaySummary = DailySummary::where('user_id', $userId)
             ->where('date', $yesterday)
             ->first();
-            
+
         if ($todaySummary && $yesterdaySummary && $todaySummary->net_profit < $yesterdaySummary->net_profit) {
             $difference = $yesterdaySummary->net_profit - $todaySummary->net_profit;
-            $percentageDrop = $yesterdaySummary->net_profit > 0 
-                ? round(($difference / $yesterdaySummary->net_profit) * 100) 
+            $percentageDrop = $yesterdaySummary->net_profit > 0
+                ? round(($difference / $yesterdaySummary->net_profit) * 100)
                 : 0;
-            
+
             if ($difference > 50000 || $percentageDrop > 10) {
-                Notification::updateOrCreate(
+                \App\Models\Notification::updateOrCreate(
                     [
                         'user_id' => $userId,
                         'type' => 'profit_decrease',
@@ -366,16 +343,16 @@ class DashboardController extends Controller
                 );
             }
         }
-        
+
         // ========== 2. CEK LABA NAIK SIGNIFIKAN ==========
         if ($todaySummary && $yesterdaySummary && $todaySummary->net_profit > $yesterdaySummary->net_profit) {
             $increase = $todaySummary->net_profit - $yesterdaySummary->net_profit;
-            $percentageIncrease = $yesterdaySummary->net_profit > 0 
-                ? round(($increase / $yesterdaySummary->net_profit) * 100) 
+            $percentageIncrease = $yesterdaySummary->net_profit > 0
+                ? round(($increase / $yesterdaySummary->net_profit) * 100)
                 : 100;
-            
+
             if ($percentageIncrease > 20) {
-                Notification::updateOrCreate(
+                \App\Models\Notification::updateOrCreate(
                     [
                         'user_id' => $userId,
                         'type' => 'profit_increase',
@@ -395,17 +372,17 @@ class DashboardController extends Controller
                 );
             }
         }
-        
+
         // ========== 3. CEK PENGELUARAN BESAR ==========
         $avgExpense = (float) Transaction::where('user_id', $userId)
             ->where('type', 'pengeluaran')
             ->whereDate('transaction_date', '>=', Carbon::now()->subDays(30))
             ->avg('amount');
-            
+
         if ($avgExpense > 0 && $todayExpense > $avgExpense * 1.5 && $todayExpense > 0) {
             $ratio = round(($todayExpense / $avgExpense), 1);
-            
-            Notification::updateOrCreate(
+
+            \App\Models\Notification::updateOrCreate(
                 [
                     'user_id' => $userId,
                     'type' => 'large_expense',
@@ -423,15 +400,15 @@ class DashboardController extends Controller
                 ]
             );
         }
-        
+
         // ========== 4. CEK PRIVE HARI INI ==========
         $todayPrive = (float) Prive::where('user_id', $userId)
             ->whereDate('prive_date', $today)
             ->where('is_approved', 'approved')
             ->sum('amount');
-            
+
         if ($todayPrive > 0) {
-            Notification::updateOrCreate(
+            \App\Models\Notification::updateOrCreate(
                 [
                     'user_id' => $userId,
                     'type' => 'prive',
@@ -447,18 +424,18 @@ class DashboardController extends Controller
                 ]
             );
         }
-        
+
         // ========== 5. CEK SALDO MENIPIS (DENGAN PENCEGAHAN DUPLIKASI) ==========
         $lowBalanceThreshold = config('business.alerts.low_balance', 500000);
         if ($currentBalance < $lowBalanceThreshold && $currentBalance > 0) {
             // Cek apakah sudah ada notifikasi serupa dalam 3 hari terakhir
-            $recentNotification = Notification::where('user_id', $userId)
+            $recentNotification = \App\Models\Notification::where('user_id', $userId)
                 ->where('type', 'low_balance')
                 ->whereDate('created_at', '>=', Carbon::now()->subDays(3))
                 ->exists();
-                
+
             if (!$recentNotification) {
-                Notification::updateOrCreate(
+                \App\Models\Notification::updateOrCreate(
                     [
                         'user_id' => $userId,
                         'type' => 'low_balance',
@@ -476,10 +453,10 @@ class DashboardController extends Controller
                 );
             }
         }
-        
+
         // ========== 6. CEK PENCAPAIAN TARGET ==========
         if ($monthProfit >= $targetProfit && $targetProfit > 0) {
-            Notification::updateOrCreate(
+            \App\Models\Notification::updateOrCreate(
                 [
                     'user_id' => $userId,
                     'type' => 'target_achieved',
@@ -497,11 +474,11 @@ class DashboardController extends Controller
                 ]
             );
         }
-        
+
         // ========== 7. CEK TARGET HAMPIR TERCAPAI (80%) ==========
         $progressPercentage = $targetProfit > 0 ? round(($monthProfit / $targetProfit) * 100) : 0;
         if ($progressPercentage >= 80 && $progressPercentage < 100 && $monthProfit > 0) {
-            Notification::updateOrCreate(
+            \App\Models\Notification::updateOrCreate(
                 [
                     'user_id' => $userId,
                     'type' => 'target_progress',
@@ -519,21 +496,21 @@ class DashboardController extends Controller
                 ]
             );
         }
-        
+
         // ========== 8. CEK TIDAK ADA TRANSAKSI HARI INI ==========
         $todayTransactionCount = Transaction::where('user_id', $userId)
             ->whereDate('transaction_date', $today)
             ->count();
-            
+
         if ($todayTransactionCount == 0 && $hasAnyTransaction) {
             // Cek apakah sudah ada notifikasi serupa dalam 3 hari terakhir
-            $recentNotification = Notification::where('user_id', $userId)
+            $recentNotification = \App\Models\Notification::where('user_id', $userId)
                 ->where('type', 'no_transaction')
                 ->whereDate('created_at', '>=', Carbon::now()->subDays(3))
                 ->exists();
-                
+
             if (!$recentNotification) {
-                Notification::create([
+                \App\Models\Notification::create([
                     'user_id' => $userId,
                     'type' => 'no_transaction',
                     'title' => '📝 Belum Ada Transaksi',
@@ -545,14 +522,14 @@ class DashboardController extends Controller
                 ]);
             }
         }
-        
+
         // ========== 9. HAPUS NOTIFIKASI LAMA ==========
-        Notification::where('user_id', $userId)
+        \App\Models\Notification::where('user_id', $userId)
             ->where('is_read', 'read')
             ->whereDate('created_at', '<=', Carbon::now()->subDays(30))
             ->delete();
-            
-        Notification::where('user_id', $userId)
+
+        \App\Models\Notification::where('user_id', $userId)
             ->where('is_read', 'archived')
             ->whereDate('created_at', '<=', Carbon::now()->subDays(7))
             ->delete();
@@ -565,16 +542,16 @@ class DashboardController extends Controller
     {
         $now = Carbon::now();
         $diff = $now->diffInMinutes($datetime);
-        
+
         if ($diff < 1) return 'baru saja';
         if ($diff < 60) return $diff . ' menit yang lalu';
-        
+
         $diff = $now->diffInHours($datetime);
         if ($diff < 24) return $diff . ' jam yang lalu';
-        
+
         $diff = $now->diffInDays($datetime);
         if ($diff < 7) return $diff . ' hari yang lalu';
-        
+
         return Carbon::parse($datetime)->format('d M');
     }
 }
