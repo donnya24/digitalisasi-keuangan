@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Prive;
 use App\Models\PrivePurpose;
+use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
@@ -18,10 +19,10 @@ class PriveController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
-        
-        $query = Prive::with('purposeModel') // <-- TAMBAHKAN WITH
+
+        $query = Prive::with('purposeModel')
             ->where('user_id', $user->id);
-        
+
         // Filter berdasarkan bulan
         if ($request->has('month') && $request->month) {
             $query->whereMonth('prive_date', Carbon::parse($request->month)->month)
@@ -31,52 +32,52 @@ class PriveController extends Controller
             $query->whereMonth('prive_date', Carbon::now()->month)
                   ->whereYear('prive_date', Carbon::now()->year);
         }
-        
+
         // Filter berdasarkan status
         if ($request->has('status') && $request->status) {
             $query->where('is_approved', $request->status);
         }
-        
+
         // Filter berdasarkan keperluan
         if ($request->has('purpose_id') && $request->purpose_id) {
             $query->where('purpose_id', $request->purpose_id);
         }
-        
+
         $prives = $query->orderBy('prive_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->paginate(15);
-        
+
         // Hitung total prive bulan ini
         $totalPriveBulanIni = Prive::where('user_id', $user->id)
             ->whereMonth('prive_date', Carbon::now()->month)
             ->whereYear('prive_date', Carbon::now()->year)
             ->where('is_approved', 'approved')
             ->sum('amount');
-        
+
         // Hitung total semua prive
         $totalAllPrive = Prive::where('user_id', $user->id)
             ->where('is_approved', 'approved')
             ->sum('amount');
-        
+
         // Ambil bulan untuk filter
         $months = Prive::where('user_id', $user->id)
             ->select(DB::raw("DISTINCT TO_CHAR(prive_date, 'YYYY-MM') as month"))
             ->orderBy('month', 'desc')
             ->pluck('month');
-        
+
         // Ambil semua keperluan untuk filter
         $purposes = PrivePurpose::where('user_id', $user->id)
             ->where('is_active', 'active')
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
-        
+
         return view('prive.index', compact(
-            'prives', 
-            'totalPriveBulanIni', 
-            'totalAllPrive', 
+            'prives',
+            'totalPriveBulanIni',
+            'totalAllPrive',
             'months',
-            'purposes' // <-- TAMBAHKAN UNTUK FILTER
+            'purposes'
         ));
     }
 
@@ -90,7 +91,7 @@ class PriveController extends Controller
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
-        
+
         return view('prive.create', compact('purposes'));
     }
 
@@ -100,15 +101,15 @@ class PriveController extends Controller
     public function store(Request $request)
     {
         $user = auth()->user();
-        
+
         // Bersihkan amount dari format Rupiah
         $cleanAmount = $this->cleanAmount($request->amount);
-        
+
         $validator = Validator::make($request->all(), [
             'amount' => 'required|numeric|min:0',
             'description' => 'required|string|max:255',
             'prive_date' => 'required|date',
-            'purpose_id' => 'nullable|exists:prive_purposes,id', // <-- TAMBAHKAN VALIDASI
+            'purpose_id' => 'nullable|exists:prive_purposes,id',
             'purpose' => 'nullable|string|max:100',
         ], [
             'amount.required' => 'Jumlah harus diisi',
@@ -136,15 +137,35 @@ class PriveController extends Controller
             $purposeName = $request->purpose;
         }
 
-        Prive::create([
+        // Simpan prive
+        $prive = Prive::create([
             'id' => Str::uuid(),
             'user_id' => $user->id,
-            'purpose_id' => $request->purpose_id, // <-- TAMBAHKAN
+            'purpose_id' => $request->purpose_id,
             'amount' => $cleanAmount,
             'description' => $request->description,
             'prive_date' => $request->prive_date,
-            'purpose' => $purposeName, // <-- SIMPAN NAMA DARI DROPDOWN ATAU INPUT MANUAL
+            'purpose' => $purposeName,
             'is_approved' => 'approved',
+        ]);
+
+        // ✅ BUAT NOTIFIKASI HANYA SEKALI!
+        Notification::create([
+            'id' => Str::uuid(),
+            'user_id' => $user->id,
+            'type' => 'prive',
+            'title' => '💸 Prive',
+            'message' => 'Anda menarik Rp ' . number_format($prive->amount, 0, ',', '.') . ' untuk ' . ($purposeName ?? 'kebutuhan pribadi'),
+            'is_read' => 'unread',
+            'icon' => 'hand-holding-usd',
+            'bg_color' => 'bg-purple-100',
+            'text_color' => 'text-purple-600',
+            'data' => json_encode([
+                'amount' => $prive->amount,
+                'prive_id' => $prive->id,
+                'description' => $prive->description,
+                'purpose' => $purposeName,
+            ]),
         ]);
 
         return redirect()->route('prive.index')
@@ -159,9 +180,9 @@ class PriveController extends Controller
         if ($prive->user_id !== auth()->id()) {
             abort(403, 'Unauthorized access');
         }
-        
-        $prive->load('purposeModel'); // <-- TAMBAHKAN LOAD RELASI
-        
+
+        $prive->load('purposeModel');
+
         return view('prive.show', compact('prive'));
     }
 
@@ -173,13 +194,13 @@ class PriveController extends Controller
         if ($prive->user_id !== auth()->id()) {
             abort(403, 'Unauthorized access');
         }
-        
+
         $purposes = PrivePurpose::where('user_id', auth()->id())
             ->where('is_active', 'active')
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
-        
+
         return view('prive.edit', compact('prive', 'purposes'));
     }
 
@@ -191,15 +212,15 @@ class PriveController extends Controller
         if ($prive->user_id !== auth()->id()) {
             abort(403, 'Unauthorized access');
         }
-        
+
         // Bersihkan amount dari format Rupiah
         $cleanAmount = $this->cleanAmount($request->amount);
-        
+
         $validator = Validator::make($request->all(), [
             'amount' => 'required|numeric|min:0',
             'description' => 'required|string|max:255',
             'prive_date' => 'required|date',
-            'purpose_id' => 'nullable|exists:prive_purposes,id', // <-- TAMBAHKAN VALIDASI
+            'purpose_id' => 'nullable|exists:prive_purposes,id',
             'purpose' => 'nullable|string|max:100',
         ], [
             'amount.required' => 'Jumlah harus diisi',
@@ -227,13 +248,39 @@ class PriveController extends Controller
             $purposeName = $request->purpose;
         }
 
+        // Simpan data lama untuk perbandingan
+        $oldAmount = $prive->amount;
+        $oldPurpose = $prive->purpose;
+
+        // Update prive
         $prive->update([
-            'purpose_id' => $request->purpose_id, // <-- TAMBAHKAN
+            'purpose_id' => $request->purpose_id,
             'amount' => $cleanAmount,
             'description' => $request->description,
             'prive_date' => $request->prive_date,
-            'purpose' => $purposeName, // <-- UPDATE NAMA
+            'purpose' => $purposeName,
         ]);
+
+        // ✅ UPDATE NOTIFIKASI TERKAIT
+        $notification = Notification::where('user_id', auth()->id())
+            ->where('type', 'prive')
+            ->whereRaw("data->>'prive_id' = ?", [$prive->id])
+            ->first();
+
+        if ($notification) {
+            $notification->update([
+                'message' => 'Prive diperbarui: Rp ' . number_format($prive->amount, 0, ',', '.') . ' untuk ' . ($purposeName ?? 'kebutuhan pribadi'),
+                'data' => json_encode([
+                    'amount' => $prive->amount,
+                    'prive_id' => $prive->id,
+                    'description' => $prive->description,
+                    'purpose' => $purposeName,
+                    'old_amount' => $oldAmount,
+                    'old_purpose' => $oldPurpose,
+                    'updated_at' => now()->toDateTimeString(),
+                ]),
+            ]);
+        }
 
         return redirect()->route('prive.index')
             ->with('success', 'Prive berhasil diperbarui');
@@ -247,7 +294,13 @@ class PriveController extends Controller
         if ($prive->user_id !== auth()->id()) {
             abort(403, 'Unauthorized access');
         }
-        
+
+        // ✅ HAPUS NOTIFIKASI TERKAIT
+        Notification::where('user_id', auth()->id())
+            ->where('type', 'prive')
+            ->whereRaw("data->>'prive_id' = ?", [$prive->id])
+            ->delete();
+
         $prive->delete();
 
         return redirect()->route('prive.index')
@@ -262,9 +315,9 @@ class PriveController extends Controller
         if ($prive->user_id !== auth()->id()) {
             abort(403);
         }
-        
+
         $prive->update(['is_approved' => 'approved']);
-        
+
         return redirect()->back()
             ->with('success', 'Prive disetujui');
     }
@@ -277,7 +330,7 @@ class PriveController extends Controller
         if (empty($amount)) {
             return 0;
         }
-        
+
         $cleaned = preg_replace('/[^0-9]/', '', $amount);
         return (int) $cleaned;
     }

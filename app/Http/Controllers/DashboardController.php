@@ -232,9 +232,6 @@ class DashboardController extends Controller
                 ];
             });
 
-        // ⚠️ NOTIFIKASI TIDAK DIKIRIM DARI CONTROLLER!
-        // View Composer yang akan menangani notifikasi
-
         return view('dashboard.index', compact(
             'todayIncome',
             'todayExpense',
@@ -261,7 +258,6 @@ class DashboardController extends Controller
             'targetProfit',
             'profitPercentage',
             'recentTransactions'
-            // 👆 'notifications' dan 'unreadNotifications' TIDAK ADA!
         ));
     }
 
@@ -401,29 +397,29 @@ class DashboardController extends Controller
             );
         }
 
-        // ========== 4. CEK PRIVE HARI INI ==========
-        $todayPrive = (float) Prive::where('user_id', $userId)
-            ->whereDate('prive_date', $today)
-            ->where('is_approved', 'approved')
-            ->sum('amount');
+        // ========== 🚫 CEK PRIVE HARI INI (DIHAPUS - PINDAH KE PRIVE CONTROLLER) ==========
+        // $todayPrive = (float) Prive::where('user_id', $userId)
+        //     ->whereDate('prive_date', $today)
+        //     ->where('is_approved', 'approved')
+        //     ->sum('amount');
 
-        if ($todayPrive > 0) {
-            \App\Models\Notification::updateOrCreate(
-                [
-                    'user_id' => $userId,
-                    'type' => 'prive',
-                    'created_at' => Carbon::today(),
-                ],
-                [
-                    'title' => '💸 Prive',
-                    'message' => 'Anda menarik Rp ' . number_format($todayPrive, 0, ',', '.') . ' untuk kebutuhan pribadi',
-                    'is_read' => 'unread',
-                    'data' => json_encode([
-                        'amount' => $todayPrive,
-                    ]),
-                ]
-            );
-        }
+        // if ($todayPrive > 0) {
+        //     \App\Models\Notification::updateOrCreate(
+        //         [
+        //             'user_id' => $userId,
+        //             'type' => 'prive',
+        //             'created_at' => Carbon::today(),
+        //         ],
+        //         [
+        //             'title' => '💸 Prive',
+        //             'message' => 'Anda menarik Rp ' . number_format($todayPrive, 0, ',', '.') . ' untuk kebutuhan pribadi',
+        //             'is_read' => 'unread',
+        //             'data' => json_encode([
+        //                 'amount' => $todayPrive,
+        //             ]),
+        //         ]
+        //     );
+        // }
 
         // ========== 5. CEK SALDO MENIPIS (DENGAN PENCEGAHAN DUPLIKASI) ==========
         $lowBalanceThreshold = config('business.alerts.low_balance', 500000);
