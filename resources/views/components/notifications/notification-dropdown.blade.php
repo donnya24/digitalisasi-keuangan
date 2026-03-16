@@ -89,8 +89,89 @@
          x-cloak
          class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
          @click.self="showAllModal = false">
-        <div class="bg-white w-full max-w-2xl max-h-[90vh] rounded-xl shadow-xl flex flex-col">
-            <!-- ... isi modal tetap sama ... -->
+
+        <div class="bg-white w-full max-w-2xl max-h-[90vh] rounded-xl shadow-xl flex flex-col"
+             x-data="{
+                 notifications: {{ json_encode($shared_notifications ?? []) }},
+                 filter: 'all',
+
+                 get filteredNotifications() {
+                     if (this.filter === 'all') return this.notifications;
+                     if (this.filter === 'unread') return this.notifications.filter(n => !n.is_read);
+                     return this.notifications.filter(n => n.is_read);
+                 }
+             }">
+
+            <!-- HEADER MODAL -->
+            <div class="flex justify-between items-center p-4 border-b">
+                <h2 class="font-bold text-lg">Semua Notifikasi</h2>
+                <button @click="showAllModal = false" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- FILTER TABS -->
+            <div class="flex gap-2 p-3 border-b">
+                <button @click="filter = 'all'"
+                        :class="filter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
+                        class="px-3 py-1 rounded text-sm transition-colors">
+                    Semua
+                </button>
+                <button @click="filter = 'unread'"
+                        :class="filter === 'unread' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
+                        class="px-3 py-1 rounded text-sm transition-colors">
+                    Belum Dibaca
+                </button>
+                <button @click="filter = 'read'"
+                        :class="filter === 'read' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
+                        class="px-3 py-1 rounded text-sm transition-colors">
+                    Sudah Dibaca
+                </button>
+            </div>
+
+            <!-- DAFTAR NOTIFIKASI -->
+            <div class="flex-1 overflow-y-auto p-4">
+                <template x-if="filteredNotifications.length > 0">
+                    <div>
+                        <template x-for="notif in filteredNotifications" :key="notif.id">
+                            <div class="border rounded-lg p-3 mb-2"
+                                 :class="{ 'bg-blue-50 border-blue-200': !notif.is_read }">
+                                <div class="flex items-start gap-2">
+                                    <i class="fas fa-bell text-sm" :class="notif.is_read ? 'text-gray-400' : 'text-blue-600'"></i>
+                                    <div class="flex-1">
+                                        <p class="text-sm font-medium" x-text="notif.title"></p>
+                                        <p class="text-xs text-gray-600" x-text="notif.message"></p>
+                                        <p class="text-xs text-gray-400" x-text="notif.time"></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+                <template x-if="filteredNotifications.length === 0">
+                    <div class="text-center py-8 text-gray-500">
+                        <i class="fas fa-bell-slash text-3xl text-gray-300 mb-2"></i>
+                        <p class="text-sm">Tidak ada notifikasi</p>
+                    </div>
+                </template>
+            </div>
+
+            <!-- FOOTER -->
+            <div class="p-4 border-t flex justify-between items-center">
+                <div class="text-sm text-gray-600">
+                    <span x-text="filteredNotifications.length"></span> notifikasi
+                </div>
+                <button @click="showAllModal = false"
+                        class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">
+                    Tutup
+                </button>
+            </div>
         </div>
     </div>
 </div>
+
+<style>
+[x-cloak] {
+    display: none !important;
+}
+</style>
