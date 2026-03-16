@@ -23,6 +23,14 @@ use App\Http\Controllers\Auth\GoogleController;
 |--------------------------------------------------------------------------
 */
 
+Route::get('/health', function() {
+    return response()->json([
+        'status' => 'healthy',
+        'time' => now(),
+        'php' => phpversion()
+    ]);
+});
+
 // Redirect root berdasarkan status login
 Route::get('/', function () {
     if (auth()->check()) {
