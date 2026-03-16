@@ -5,24 +5,23 @@
     $notifications = $shared_notifications ?? [];
     $unreadCount = $shared_unread_count ?? 0;
 
-    // DEBUG VISUAL (HAPUS SETELAH BERHASIL)
-    $debug = [
-        'shared_exists' => isset($shared_notifications),
-        'notif_count' => count($notifications),
-        'unread' => $unreadCount,
-        'path' => request()->path()
-    ];
+    // DEBUG
+    $hasData = !empty($notifications);
 @endphp
 
-<!-- DEBUG INFO - Tampilkan di pojok -->
-<div class="fixed top-20 right-0 bg-black text-white text-xs p-2 z-50 rounded-l opacity-80">
-    <div class="font-bold">🔔 NOTIF DEBUG</div>
+<!-- DEBUG INFO -->
+<div class="fixed top-20 right-0 bg-black text-white text-xs p-2 z-50 rounded-l opacity-90">
+    <div class="font-bold text-yellow-300">🔔 NOTIF DEBUG</div>
     <div>📊 Count: {{ count($notifications) }}</div>
     <div>👁️ Unread: {{ $unreadCount }}</div>
     <div>📍 Path: {{ request()->path() }}</div>
-    @if(!empty($notifications))
-    <div class="border-t border-gray-500 mt-1 pt-1">
-        <div>📌 First: {{ $notifications[0]['title'] ?? '-' }}</div>
+    @if($hasData)
+    <div class="border-t border-gray-600 mt-1 pt-1 text-green-300">
+        ✅ Data: {{ $notifications[0]['title'] ?? '-' }}
+    </div>
+    @else
+    <div class="border-t border-gray-600 mt-1 pt-1 text-red-300">
+        ❌ Tidak ada data
     </div>
     @endif
 </div>
@@ -51,12 +50,11 @@
         <div class="px-4 py-2 border-b flex justify-between items-center">
             <h3 class="font-semibold text-gray-800">Notifikasi</h3>
             @if($unreadCount > 0)
-            <button onclick="event.preventDefault(); document.getElementById('mark-all-read-form').submit();"
-                    class="text-xs text-blue-600 hover:underline">
-                Tandai semua
-            </button>
-            <form id="mark-all-read-form" action="{{ route('notifications.mark-all-read') }}" method="POST" class="hidden">
+            <form action="{{ route('notifications.mark-all-read') }}" method="POST">
                 @csrf
+                <button class="text-xs text-blue-600 hover:underline">
+                    Tandai semua
+                </button>
             </form>
             @endif
         </div>
