@@ -156,14 +156,6 @@ return [
         Illuminate\Translation\TranslationServiceProvider::class,
         Illuminate\Validation\ValidationServiceProvider::class,
         Illuminate\View\ViewServiceProvider::class,
-
-        // Package Service Providers...
-        Devrabiul\PwaKit\PwaKitServiceProvider::class,
-
-        // Application Service Providers...
-        App\Providers\AppServiceProvider::class,
-
-        App\Providers\ViewServiceProvider::class,
     ],
 
     /*
