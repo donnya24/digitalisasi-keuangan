@@ -18,7 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Tambahkan middleware ke grup web
         $middleware->web(append: [
-            \App\Http\Middleware\HttpsProtocol::class,
+            // \App\Http\Middleware\HttpsProtocol::class,
             \App\Http\Middleware\VerifyCsrfToken::class,
         ]);
 

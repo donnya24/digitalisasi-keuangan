@@ -22,13 +22,100 @@
     <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
+    <!-- ALPINE STORE GLOBAL untuk NOTIFIKASI -->
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.store('notification', {
+                notifications: [],
+                unreadCount: 0,
+                filter: 'all',
+                
+                init() {
+                    this.loadNotifications();
+                    
+                    // Auto refresh setiap 30 detik
+                    setInterval(() => {
+                        this.loadNotifications();
+                    }, 30000);
+                },
+                
+                loadNotifications() {
+                    fetch('{{ route("notifications.latest") }}')
+                        .then(response => response.json())
+                        .then(data => {
+                            this.notifications = data.notifications || [];
+                            this.unreadCount = data.unread_count || 0;
+                            console.log('Notifikasi dimuat:', this.notifications.length);
+                        })
+                        .catch(error => console.error('Error loading notifications:', error));
+                },
+                
+                get filteredNotifications() {
+                    if (!this.notifications) return [];
+                    if (this.filter === 'all') return this.notifications;
+                    if (this.filter === 'unread') {
+                        return this.notifications.filter(n => !n.is_read);
+                    }
+                    return this.notifications.filter(n => n.is_read);
+                },
+                
+                markAsRead(id) {
+                    fetch(`/notifications/${id}/mark-read`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'Content-Type': 'application/json'
+                        }
+                    }).then(() => {
+                        const notif = this.notifications.find(n => n.id === id);
+                        if (notif) {
+                            notif.is_read = true;
+                            this.unreadCount = this.notifications.filter(n => !n.is_read).length;
+                        }
+                    });
+                },
+                
+                markAllAsRead() {
+                    fetch('{{ route("notifications.mark-all-read") }}', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'Content-Type': 'application/json'
+                        }
+                    }).then(() => {
+                        this.notifications.forEach(n => n.is_read = true);
+                        this.unreadCount = 0;
+                    });
+                },
+                
+                deleteNotification(id) {
+                    if (confirm('Hapus notifikasi ini?')) {
+                        fetch(`/notifications/${id}`, {
+                            method: 'DELETE',
+                            headers: {
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                'Content-Type': 'application/json'
+                            }
+                        }).then(() => {
+                            this.notifications = this.notifications.filter(n => n.id !== id);
+                            this.unreadCount = this.notifications.filter(n => !n.is_read).length;
+                        });
+                    }
+                }
+            });
+
+            // Inisialisasi store
+            Alpine.store('notification').init();
+        });
+    </script>
+
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     @stack('styles')
 </head>
 <body class="font-sans antialiased bg-gray-100">
-    <!-- Loading Spinner - CUKUP SATU KALI -->
+    <!-- Loading Spinner -->
     <x-loading-spinner />
 
     <!-- Mobile Menu Overlay -->
@@ -37,7 +124,50 @@
     <div class="min-h-screen">
         <!-- Top Navigation -->
         <nav class="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-30" x-data="{ open: false }">
-            <!-- ... navigasi tetap sama ... -->
+            <div class="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <!-- Logo -->
+                    <div class="flex items-center">
+                        <a href="{{ route('dashboard') }}" class="flex items-center">
+                            <i class="fas fa-wallet text-blue-600 text-xl mr-2"></i>
+                            <span class="font-bold text-gray-800">{{ config('app.name') }}</span>
+                        </a>
+                    </div>
+
+                    <!-- Right Navigation -->
+                    <div class="flex items-center space-x-4">
+                        <!-- Notifications -->
+                        @auth
+                            <x-notification-dropdown />
+                        @endauth
+
+                        <!-- User Menu -->
+                        @auth
+                            <div class="relative">
+                                <button @click="open = !open" class="flex items-center space-x-2 text-gray-700 hover:text-gray-900">
+                                    <span class="text-sm">{{ Auth::user()->name }}</span>
+                                    <i class="fas fa-chevron-down text-xs"></i>
+                                </button>
+
+                                <!-- Dropdown -->
+                                <div x-show="open" 
+                                     @click.away="open = false"
+                                     class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+                                    <a href="{{ route('setting.index') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <i class="fas fa-user mr-2"></i> Profil
+                                    </a>
+                                    <form method="POST" action="{{ route('logout') }}">
+                                        @csrf
+                                        <button type="submit" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                            <i class="fas fa-sign-out-alt mr-2"></i> Logout
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        @endauth
+                    </div>
+                </div>
+            </div>
         </nav>
 
         <!-- Page Content -->
@@ -63,6 +193,9 @@
             </div>
         </main>
     </div>
+
+    <!-- Floating Action Button -->
+    @yield('fab')
 
     <!-- Confirm Delete Function -->
     <script>
@@ -92,7 +225,6 @@
                 allowOutsideClick: () => !Swal.isLoading()
             }).then((result) => {
                 if (result.isConfirmed) {
-                    // Cari form terdekat dan submit
                     const button = event.target;
                     const form = button.closest('form');
                     if (form) {
@@ -105,89 +237,41 @@
         }
     </script>
 
-    <!-- SPINNER SCRIPT - PASTIKAN HANYA SATU KALI -->
+    <!-- Spinner Script -->
     <script>
         (function() {
-            // Fungsi untuk menampilkan spinner
             function showSpinner() {
                 const spinner = document.getElementById('loading-spinner');
-                if (spinner) {
-                    spinner.classList.remove('hidden');
-                    console.log('Spinner ditampilkan');
-                } else {
-                    console.error('Spinner element tidak ditemukan!');
-                }
+                if (spinner) spinner.classList.remove('hidden');
             }
 
-            // Fungsi untuk menyembunyikan spinner
             function hideSpinner() {
                 const spinner = document.getElementById('loading-spinner');
-                if (spinner) {
-                    spinner.classList.add('hidden');
-                    console.log('Spinner disembunyikan');
-                }
+                if (spinner) spinner.classList.add('hidden');
             }
 
-            // Tampilkan spinner saat link diklik
             document.addEventListener('click', function(e) {
                 const link = e.target.closest('a');
-                
                 if (!link) return;
                 if (link.target === '_blank') return;
                 if (link.hasAttribute('download')) return;
-                if (link.hash && link.href === window.location.href) return;
-                
-                // Cek apakah link internal
                 if (link.hostname && link.hostname !== window.location.hostname) return;
-                
                 showSpinner();
             });
 
-            // Tampilkan spinner saat form disubmit
-            document.addEventListener('submit', function(e) {
+            document.addEventListener('submit', function() {
                 showSpinner();
             });
 
-            // Sembunyikan spinner saat halaman selesai dimuat
-            window.addEventListener('load', function() {
-                hideSpinner();
-            });
+            window.addEventListener('load', hideSpinner);
+            window.addEventListener('error', hideSpinner);
 
-            // Sembunyikan spinner jika terjadi error
-            window.addEventListener('error', function() {
-                hideSpinner();
-            });
-
-            // Override fetch untuk AJAX requests
             const originalFetch = window.fetch;
             window.fetch = function() {
                 showSpinner();
-                return originalFetch.apply(this, arguments)
-                    .finally(() => hideSpinner());
+                return originalFetch.apply(this, arguments).finally(hideSpinner);
             };
         })();
-    </script>
-
-    <!-- Auto refresh notifikasi -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            setInterval(function() {
-                fetch('{{ route("notifications.latest") }}')
-                    .then(response => response.json())
-                    .then(data => {
-                        const badge = document.querySelector('.fa-bell + span');
-                        if (badge) {
-                            if (data.unread_count > 0) {
-                                badge.textContent = data.unread_count;
-                                badge.classList.remove('hidden');
-                            } else {
-                                badge.classList.add('hidden');
-                            }
-                        }
-                    })
-                    .catch(error => console.error('Error fetching notifications:', error));
-            }, 30000);
-        });
     </script>
 
     @stack('scripts')
