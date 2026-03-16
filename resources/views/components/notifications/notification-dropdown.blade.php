@@ -5,7 +5,7 @@
     $notifications = $shared_notifications ?? [];
     $unreadCount = $shared_unread_count ?? 0;
 
-    // DEBUG VISUAL (HAPUS NANTI)
+    // DEBUG VISUAL (HAPUS SETELAH BERHASIL)
     $debug = [
         'shared_exists' => isset($shared_notifications),
         'notif_count' => count($notifications),
@@ -15,10 +15,16 @@
 @endphp
 
 <!-- DEBUG INFO - Tampilkan di pojok -->
-<div class="fixed top-20 right-0 bg-yellow-100 text-xs p-2 z-50 rounded-l">
-    <div>🔔 Notif: {{ count($notifications) }}</div>
-    <div>📊 Unread: {{ $unreadCount }}</div>
+<div class="fixed top-20 right-0 bg-black text-white text-xs p-2 z-50 rounded-l opacity-80">
+    <div class="font-bold">🔔 NOTIF DEBUG</div>
+    <div>📊 Count: {{ count($notifications) }}</div>
+    <div>👁️ Unread: {{ $unreadCount }}</div>
     <div>📍 Path: {{ request()->path() }}</div>
+    @if(!empty($notifications))
+    <div class="border-t border-gray-500 mt-1 pt-1">
+        <div>📌 First: {{ $notifications[0]['title'] ?? '-' }}</div>
+    </div>
+    @endif
 </div>
 
 <div class="relative" x-data="{ open: false, showAllModal: false }">
@@ -28,6 +34,10 @@
         @if($unreadCount > 0)
         <span class="absolute top-0 right-0 w-3 h-3 sm:w-4 sm:h-4 bg-red-500 text-white text-[10px] sm:text-xs rounded-full flex items-center justify-center">
             {{ $unreadCount }}
+        </span>
+        @else
+        <span class="absolute top-0 right-0 w-3 h-3 sm:w-4 sm:h-4 bg-gray-400 text-white text-[10px] sm:text-xs rounded-full flex items-center justify-center">
+            0
         </span>
         @endif
     </button>
@@ -41,11 +51,12 @@
         <div class="px-4 py-2 border-b flex justify-between items-center">
             <h3 class="font-semibold text-gray-800">Notifikasi</h3>
             @if($unreadCount > 0)
-            <form action="{{ route('notifications.mark-all-read') }}" method="POST">
+            <button onclick="event.preventDefault(); document.getElementById('mark-all-read-form').submit();"
+                    class="text-xs text-blue-600 hover:underline">
+                Tandai semua
+            </button>
+            <form id="mark-all-read-form" action="{{ route('notifications.mark-all-read') }}" method="POST" class="hidden">
                 @csrf
-                <button class="text-xs text-blue-600 hover:underline">
-                    Tandai semua
-                </button>
             </form>
             @endif
         </div>
@@ -54,7 +65,9 @@
             @forelse($notifications as $notif)
             <div class="px-4 py-3 hover:bg-gray-50 border-b">
                 <div class="flex gap-2">
-                    <i class="fas fa-{{ $notif['icon'] ?? 'bell' }} text-sm {{ $notif['text_color'] ?? 'text-gray-600' }}"></i>
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center {{ $notif['bg_color'] ?? 'bg-gray-100' }}">
+                        <i class="fas fa-{{ $notif['icon'] ?? 'bell' }} text-sm {{ $notif['text_color'] ?? 'text-gray-600' }}"></i>
+                    </div>
                     <div class="flex-1">
                         <p class="text-sm font-medium {{ $notif['text_color'] ?? 'text-gray-800' }}">
                             {{ $notif['title'] ?? 'Notifikasi' }}
@@ -71,7 +84,8 @@
             </div>
             @empty
             <div class="text-center py-6 text-gray-500">
-                Tidak ada notifikasi
+                <i class="fas fa-check-circle text-3xl mb-2 text-gray-300"></i>
+                <p class="text-sm">Tidak ada notifikasi</p>
             </div>
             @endforelse
         </div>
@@ -92,7 +106,7 @@
 
         <div class="bg-white w-full max-w-2xl max-h-[90vh] rounded-xl shadow-xl flex flex-col"
              x-data="{
-                 notifications: {{ json_encode($shared_notifications ?? []) }},
+                 notifications: {{ json_encode($notifications) }},
                  filter: 'all',
 
                  get filteredNotifications() {
@@ -137,7 +151,10 @@
                             <div class="border rounded-lg p-3 mb-2"
                                  :class="{ 'bg-blue-50 border-blue-200': !notif.is_read }">
                                 <div class="flex items-start gap-2">
-                                    <i class="fas fa-bell text-sm" :class="notif.is_read ? 'text-gray-400' : 'text-blue-600'"></i>
+                                    <div class="w-8 h-8 rounded-lg flex items-center justify-center"
+                                         :class="notif.bg_color || 'bg-gray-100'">
+                                        <i class="fas fa-bell text-sm" :class="notif.text_color || 'text-gray-600'"></i>
+                                    </div>
                                     <div class="flex-1">
                                         <p class="text-sm font-medium" x-text="notif.title"></p>
                                         <p class="text-xs text-gray-600" x-text="notif.message"></p>
