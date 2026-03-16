@@ -17,35 +17,36 @@ class ViewServiceProvider extends ServiceProvider
                 try {
                     $userId = Auth::id();
 
-                    // AMBIL NOTIFIKASI - FILTER UNREAD DAN READ (TAPI TIDAK ARCHIVED)
+                    // 🌟 AMBIL NOTIFIKASI PERSIS SEPERTI DI DASHBOARD
                     $notifications = Notification::where('user_id', $userId)
-                        ->whereIn('is_read', ['unread', 'read']) // Hanya yang aktif
+                        ->where('is_read', 'unread')  // FILTER UNREAD (sesuai dashboard)
                         ->orderBy('created_at', 'desc')
                         ->limit(5)
                         ->get()
                         ->map(function ($notification) {
                             return [
                                 'id' => $notification->id,
+                                'type' => $notification->type,
+                                'icon' => $notification->icon ?? 'bell',
                                 'title' => $notification->title ?? 'Notifikasi',
                                 'message' => $notification->message ?? '',
-                                'time' => $notification->created_at->diffForHumans(),
-                                'is_read' => $notification->is_read === 'read', // boolean untuk Alpine
-                                'icon' => $notification->icon ?? $this->getIcon($notification->type),
-                                'text_color' => $notification->text_color ?? $this->getTextColor($notification->type),
-                                'bg_color' => $notification->bg_color ?? $this->getBgColor($notification->type),
-                                'type' => $notification->type,
+                                'time' => $notification->formatted_time ?? $notification->created_at->diffForHumans(),
+                                'bg_color' => $notification->bg_color ?? 'bg-gray-100',
+                                'text_color' => $notification->text_color ?? 'text-gray-600',
+                                'is_read' => $notification->is_read === 'read',
                             ];
                         })->toArray();
 
-                    // HITUNG UNREAD - KHUSUS YANG 'unread'
+                    // HITUNG UNREAD
                     $unreadCount = Notification::where('user_id', $userId)
                         ->where('is_read', 'unread')
                         ->count();
 
-                    // DEBUG LOG
-                    Log::info('NOTIF VIEW COMPOSER', [
+                    // 🔍 DEBUG LENGKAP
+                    Log::info('🔔 VIEW COMPOSER NOTIF', [
                         'user_id' => $userId,
-                        'total_notif' => count($notifications),
+                        'query' => "where user_id = $userId AND is_read = 'unread'",
+                        'result_count' => count($notifications),
                         'unread_count' => $unreadCount,
                         'first_notif' => $notifications[0] ?? null
                     ]);
@@ -56,9 +57,10 @@ class ViewServiceProvider extends ServiceProvider
                     ]);
 
                 } catch (\Exception $e) {
-                    Log::error('VIEW COMPOSER ERROR: ' . $e->getMessage(), [
+                    Log::error('❌ VIEW COMPOSER ERROR: ' . $e->getMessage(), [
                         'file' => $e->getFile(),
-                        'line' => $e->getLine()
+                        'line' => $e->getLine(),
+                        'trace' => $e->getTraceAsString()
                     ]);
 
                     $view->with([
@@ -73,50 +75,5 @@ class ViewServiceProvider extends ServiceProvider
                 ]);
             }
         });
-    }
-
-    private function getIcon($type)
-    {
-        $icons = [
-            'profit_decrease' => 'exclamation-triangle',
-            'profit_increase' => 'chart-line',
-            'large_expense' => 'bell',
-            'prive' => 'money-bill-wave',
-            'low_balance' => 'exclamation-circle',
-            'target_achieved' => 'trophy',
-            'target_progress' => 'chart-pie',
-            'no_transaction' => 'bell',
-        ];
-        return $icons[$type] ?? 'bell';
-    }
-
-    private function getTextColor($type)
-    {
-        $colors = [
-            'profit_decrease' => 'text-red-600',
-            'profit_increase' => 'text-green-600',
-            'large_expense' => 'text-yellow-600',
-            'prive' => 'text-purple-600',
-            'low_balance' => 'text-yellow-600',
-            'target_achieved' => 'text-green-600',
-            'target_progress' => 'text-blue-600',
-            'no_transaction' => 'text-blue-600',
-        ];
-        return $colors[$type] ?? 'text-gray-600';
-    }
-
-    private function getBgColor($type)
-    {
-        $colors = [
-            'profit_decrease' => 'bg-red-50',
-            'profit_increase' => 'bg-green-50',
-            'large_expense' => 'bg-yellow-50',
-            'prive' => 'bg-purple-50',
-            'low_balance' => 'bg-yellow-50',
-            'target_achieved' => 'bg-green-50',
-            'target_progress' => 'bg-blue-50',
-            'no_transaction' => 'bg-blue-50',
-        ];
-        return $colors[$type] ?? 'bg-gray-50';
     }
 }

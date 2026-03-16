@@ -4,28 +4,29 @@
     // PAKSA PAKAI SHARED DATA
     $notifications = $shared_notifications ?? [];
     $unreadCount = $shared_unread_count ?? 0;
-
-    // DEBUG
-    $hasData = !empty($notifications);
 @endphp
 
-<!-- DEBUG INFO -->
-<div class="fixed top-20 right-0 bg-black text-white text-xs p-2 z-50 rounded-l opacity-90">
+<!-- DEBUG INFO - HITAM -->
+<div class="fixed top-20 right-0 bg-black text-white text-xs p-2 z-50 rounded-l opacity-90 min-w-[200px]">
     <div class="font-bold text-yellow-300">🔔 NOTIF DEBUG</div>
     <div>📊 Count: {{ count($notifications) }}</div>
     <div>👁️ Unread: {{ $unreadCount }}</div>
     <div>📍 Path: {{ request()->path() }}</div>
-    @if($hasData)
-    <div class="border-t border-gray-600 mt-1 pt-1 text-green-300">
-        ✅ Data: {{ $notifications[0]['title'] ?? '-' }}
-    </div>
+    @if(count($notifications) > 0)
+        <div class="border-t border-gray-600 mt-1 pt-1 text-green-300">
+            ✅ Data ditemukan!
+            <div class="text-xs text-gray-300 mt-1">
+                <strong>Sample:</strong> {{ $notifications[0]['title'] ?? '-' }}
+            </div>
+        </div>
     @else
-    <div class="border-t border-gray-600 mt-1 pt-1 text-red-300">
-        ❌ Tidak ada data
-    </div>
+        <div class="border-t border-gray-600 mt-1 pt-1 text-red-300">
+            ❌ TIDAK ADA DATA
+        </div>
     @endif
 </div>
 
+<!-- BELL ICON TAMPAK SELALU -->
 <div class="relative" x-data="{ open: false, showAllModal: false }">
     <!-- Bell Icon -->
     <button @click="open = !open" class="relative p-2 text-gray-600 hover:text-blue-600 focus:outline-none">
