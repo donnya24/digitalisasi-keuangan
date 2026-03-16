@@ -11,40 +11,51 @@ class ViewServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        // Share ke SEMUA view
+        // Share ke SEMUA view - TANPA PENGECUALIAN!
         View::composer('*', function ($view) {
+            // Cek apakah user login
             if (Auth::check()) {
                 $user = Auth::user();
 
-                // Ambil 5 notifikasi terbaru
+                // AMBIL NOTIFIKASI - Pastikan query benar
                 $notifications = $user->notifications()
                     ->latest()
                     ->take(5)
                     ->get()
                     ->map(function ($notification) {
+                        $data = $notification->data;
                         return [
                             'id' => $notification->id,
-                            'title' => $notification->data['title'] ?? 'Notifikasi',
-                            'message' => $notification->data['message'] ?? '',
+                            'title' => $data['title'] ?? 'Notifikasi',
+                            'message' => $data['message'] ?? '',
                             'time' => $notification->created_at->diffForHumans(),
                             'is_read' => !is_null($notification->read_at),
-                            'icon' => $notification->data['icon'] ?? 'bell',
-                            'text_color' => $notification->data['text_color'] ?? 'text-gray-600',
-                            'bg_color' => $notification->data['bg_color'] ?? 'bg-gray-100',
+                            'icon' => $data['icon'] ?? 'bell',
+                            'text_color' => $data['text_color'] ?? 'text-gray-600',
+                            'bg_color' => $data['bg_color'] ?? 'bg-gray-100',
                         ];
                     })->toArray();
 
                 $unreadCount = $user->unreadNotifications->count();
-            } else {
-                $notifications = [];
-                $unreadCount = 0;
-            }
 
-            // Share ke SEMUA view dengan nama yang konsisten
-            $view->with([
-                'shared_notifications' => $notifications,
-                'shared_unread_count' => $unreadCount,
-            ]);
+                // FORCE SHARE - gunakan nama yang SAMA PERSIS
+                $view->with([
+                    'shared_notifications' => $notifications,
+                    'shared_unread_count' => $unreadCount,
+                ]);
+
+                // DEBUG: Tulis ke log untuk memastikan
+                \Log::info('ViewComposer: Notifikasi dishare', [
+                    'path' => request()->path(),
+                    'count' => count($notifications),
+                    'unread' => $unreadCount
+                ]);
+            } else {
+                $view->with([
+                    'shared_notifications' => [],
+                    'shared_unread_count' => 0,
+                ]);
+            }
         });
     }
 
