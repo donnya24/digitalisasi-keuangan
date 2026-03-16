@@ -1,9 +1,23 @@
 @props(['notifications' => [], 'unread' => 0])
 
 @php
-    // Gunakan data dari View Composer (shared) jika ada, fallback ke props
+    // PRIORITAS:
+    // 1. Data dari View Composer (shared_notifications)
+    // 2. Data dari props (jika dipanggil manual)
+    // 3. Array kosong sebagai fallback
     $displayNotifications = $shared_notifications ?? $notifications ?? [];
     $displayUnread = $shared_unread_count ?? $unread ?? 0;
+
+    // Debug (bisa dihapus setelah berhasil)
+    if (app()->environment('local')) {
+        \Log::info('Notifikasi dimuat di component', [
+            'shared_count' => count($shared_notifications ?? []),
+            'props_count' => count($notifications),
+            'display_count' => count($displayNotifications),
+            'unread' => $displayUnread,
+            'view' => request()->path()
+        ]);
+    }
 @endphp
 
 <div class="relative"
@@ -11,25 +25,42 @@
          open: false,
          showAllModal: false,
          localNotifications: @js($displayNotifications),
-         localUnreadCount: {{ $displayUnread }}
-     }"
-     x-init="
-         // Sinkronisasi dengan Alpine Store
-         $watch('localUnreadCount', value => {
-             if ($store.notification) {
-                 $store.notification.unreadCount = value;
-             }
-         });
+         localUnreadCount: {{ $displayUnread }},
 
-         // Auto refresh setiap 30 detik
-         setInterval(() => {
-             if ($store.notification) {
-                 $store.notification.loadNotifications();
-                 localNotifications = $store.notification.notifications;
-                 localUnreadCount = $store.notification.unreadCount;
+         init() {
+             console.log('Notifikasi component initialized', {
+                 count: this.localNotifications.length,
+                 unread: this.localUnreadCount
+             });
+
+             // Sinkronisasi dengan Alpine store
+             if (window.Alpine && Alpine.store('notification')) {
+                 Alpine.store('notification').notifications = this.localNotifications;
+                 Alpine.store('notification').unreadCount = this.localUnreadCount;
              }
-         }, 30000);
-     ">
+
+             // Auto refresh setiap 30 detik
+             setInterval(() => {
+                 this.loadNotifications();
+             }, 30000);
+         },
+
+         loadNotifications() {
+             fetch('{{ route("notifications.latest") }}')
+                 .then(res => res.json())
+                 .then(data => {
+                     this.localNotifications = data.notifications || [];
+                     this.localUnreadCount = data.unread_count || 0;
+
+                     if (window.Alpine && Alpine.store('notification')) {
+                         Alpine.store('notification').notifications = this.localNotifications;
+                         Alpine.store('notification').unreadCount = this.localUnreadCount;
+                     }
+                 })
+                 .catch(err => console.error('Error loading notifications:', err));
+         }
+     }"
+     x-init="init()">
 
     <!-- Bell Icon -->
     <button @click="open = !open" class="relative p-2 text-gray-600 hover:text-blue-600 focus:outline-none">
@@ -52,7 +83,7 @@
             <h3 class="font-semibold text-gray-800">Notifikasi</h3>
 
             <template x-if="localUnreadCount > 0">
-                <button @click="$store.notification?.markAllAsRead(); localUnreadCount = 0"
+                <button @click="markAllAsRead()"
                         class="text-xs text-blue-600 hover:underline">
                     Tandai semua
                 </button>
@@ -60,7 +91,7 @@
         </div>
 
         <div class="max-h-96 overflow-y-auto">
-            <template x-for="notif in localNotifications" :key="notif.id">
+            <template x-for="notif in localNotifications.slice(0, 5)" :key="notif.id">
                 <div class="px-4 py-3 hover:bg-gray-50 border-b">
                     <div class="flex gap-2">
                         <i class="fas fa-bell text-sm" :class="notif.is_read ? 'text-gray-400' : 'text-blue-600'"></i>
@@ -81,7 +112,8 @@
 
             <div x-show="localNotifications.length === 0"
                  class="text-center py-6 text-gray-500">
-                Tidak ada notifikasi
+                <i class="fas fa-check-circle text-3xl mb-2 text-gray-300"></i>
+                <p class="text-sm">Tidak ada notifikasi</p>
             </div>
         </div>
 
@@ -89,11 +121,12 @@
             <button @click="showAllModal = true; open = false"
                     class="text-sm text-blue-600 hover:underline">
                 Lihat semua notifikasi
+                <i class="fas fa-arrow-right ml-1"></i>
             </button>
         </div>
     </div>
 
-    <!-- MODAL SEMUA NOTIFIKASI (menggunakan Alpine Store) -->
+    <!-- MODAL SEMUA NOTIFIKASI -->
     <div x-show="showAllModal"
          x-cloak
          class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
@@ -101,8 +134,8 @@
 
         <div class="bg-white w-full max-w-2xl max-h-[90vh] rounded-xl shadow-xl flex flex-col"
              x-data="{
-                 get notifications() { return $store.notification?.notifications || []; },
-                 get unreadCount() { return $store.notification?.unreadCount || 0; },
+                 get notifications() { return $store.notification?.notifications || localNotifications || [] },
+                 get unreadCount() { return $store.notification?.unreadCount || localUnreadCount || 0 },
                  filter: 'all',
 
                  get filteredNotifications() {
@@ -113,13 +146,40 @@
                  },
 
                  markAsRead(id) {
-                     $store.notification?.markAsRead(id)
+                     fetch(`/notifications/${id}/mark-read`, {
+                         method: 'POST',
+                         headers: {
+                             'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                             'Content-Type': 'application/json'
+                         }
+                     }).then(() => {
+                         this.loadNotifications();
+                     });
                  },
 
                  deleteNotification(id) {
                      if (confirm('Hapus notifikasi ini?')) {
-                         $store.notification?.deleteNotification(id)
+                         fetch(`/notifications/${id}`, {
+                             method: 'DELETE',
+                             headers: {
+                                 'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                 'Content-Type': 'application/json'
+                             }
+                         }).then(() => {
+                             this.loadNotifications();
+                         });
                      }
+                 },
+
+                 loadNotifications() {
+                     fetch('{{ route("notifications.latest") }}?limit=50')
+                         .then(res => res.json())
+                         .then(data => {
+                             if ($store.notification) {
+                                 $store.notification.notifications = data.notifications;
+                                 $store.notification.unreadCount = data.unread_count;
+                             }
+                         });
                  }
              }"
              @click.away="showAllModal = false">
@@ -153,7 +213,6 @@
 
             <!-- CONTENT -->
             <div class="flex-1 overflow-y-auto p-4">
-                <!-- Daftar Notifikasi -->
                 <template x-for="notif in filteredNotifications" :key="notif.id">
                     <div class="border rounded-lg p-3 mb-2"
                          :class="{ 'bg-blue-50 border-blue-200': !notif.is_read, 'border-gray-200': notif.is_read }">
@@ -190,7 +249,6 @@
                     </div>
                 </template>
 
-                <!-- Empty State -->
                 <div x-show="filteredNotifications.length === 0"
                      class="text-center text-gray-500 py-8">
                     <i class="fas fa-bell-slash text-3xl text-gray-300 mb-2"></i>
