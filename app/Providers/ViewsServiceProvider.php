@@ -6,7 +6,7 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use App\Models\Notification;
+use App\Models\Notification; // <-- PASTIKAN IMPORT INI!
 
 class ViewServiceProvider extends ServiceProvider
 {
@@ -15,52 +15,56 @@ class ViewServiceProvider extends ServiceProvider
         View::composer('*', function ($view) {
             if (Auth::check()) {
                 try {
-                    $userId = Auth::id();
+                    $user = Auth::user();
 
-                    // 🌟 AMBIL NOTIFIKASI PERSIS SEPERTI DI DASHBOARD
-                    $notifications = Notification::where('user_id', $userId)
-                        ->where('is_read', 'unread')  // FILTER UNREAD (sesuai dashboard)
+                    // 🔥 PAKAI MODEL DENGAN SCOPES YANG SUDAH ADA
+                    $notifications = Notification::where('user_id', $user->id)
+                        ->whereIn('is_read', ['unread', 'read']) // Hanya yang aktif
                         ->orderBy('created_at', 'desc')
                         ->limit(5)
                         ->get()
                         ->map(function ($notification) {
+                            // GUNAKAN ACCESSORS DARI MODEL
                             return [
                                 'id' => $notification->id,
+                                'title' => $notification->title,
+                                'message' => $notification->message,
+                                'time' => $notification->formatted_time, // PAKAI ACCESSOR
+                                'icon' => $notification->icon, // PAKAI ACCESSOR
+                                'bg_color' => $notification->bg_color, // PAKAI ACCESSOR
+                                'text_color' => $notification->text_color, // PAKAI ACCESSOR
+                                'is_read' => $notification->isRead(), // PAKAI METHOD isRead()
                                 'type' => $notification->type,
-                                'icon' => $notification->icon ?? 'bell',
-                                'title' => $notification->title ?? 'Notifikasi',
-                                'message' => $notification->message ?? '',
-                                'time' => $notification->formatted_time ?? $notification->created_at->diffForHumans(),
-                                'bg_color' => $notification->bg_color ?? 'bg-gray-100',
-                                'text_color' => $notification->text_color ?? 'text-gray-600',
-                                'is_read' => $notification->is_read === 'read',
                             ];
                         })->toArray();
 
-                    // HITUNG UNREAD
-                    $unreadCount = Notification::where('user_id', $userId)
-                        ->where('is_read', 'unread')
+                    // HITUNG UNREAD PAKAI SCOPE
+                    $unreadCount = Notification::where('user_id', $user->id)
+                        ->unread() // PAKAI SCOPE unread()
                         ->count();
 
                     // 🔍 DEBUG LENGKAP
-                    Log::info('🔔 VIEW COMPOSER NOTIF', [
-                        'user_id' => $userId,
-                        'query' => "where user_id = $userId AND is_read = 'unread'",
-                        'result_count' => count($notifications),
+                    Log::channel('stderr')->info('🔔 NOTIF DEBUG', [
+                        'user_id' => $user->id,
+                        'method' => 'ViewServiceProvider',
+                        'total_notif' => count($notifications),
                         'unread_count' => $unreadCount,
                         'first_notif' => $notifications[0] ?? null
                     ]);
 
+                    // FORCE SHARE
                     $view->with([
                         'shared_notifications' => $notifications,
                         'shared_unread_count' => $unreadCount,
                     ]);
 
+                    // DEBUG DI HTML (HAPUS NANTI)
+                    echo "<!-- NOTIF WORKS: count=" . count($notifications) . " unread=" . $unreadCount . " -->";
+
                 } catch (\Exception $e) {
                     Log::error('❌ VIEW COMPOSER ERROR: ' . $e->getMessage(), [
                         'file' => $e->getFile(),
-                        'line' => $e->getLine(),
-                        'trace' => $e->getTraceAsString()
+                        'line' => $e->getLine()
                     ]);
 
                     $view->with([
