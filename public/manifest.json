@@ -8,8 +8,8 @@
     "dir": "auto",
     "lang": "id",
     "display": "standalone",
-    "background_color": "#1E3A8A",
-    "theme_color": "#1E3A8A",
+    "background_color": "#0f5fc0",
+    "theme_color": "#0f5fc0",
     "icons": [
         {
             "src": "/icons/1024.png",
