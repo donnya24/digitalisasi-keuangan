@@ -1,39 +1,43 @@
 @props(['notifications' => [], 'unread' => 0])
 
 @php
-    // PAKSA PAKAI SHARED DATA
-    $notifications = $shared_notifications ?? [];
-    $unreadCount = $shared_unread_count ?? 0;
+    // PASTIKAN PAKAI SHARED DATA DARI APPSERVICEPROVIDER
+    $displayNotifications = $shared_notifications ?? [];
+    $displayUnread = $shared_unread_count ?? 0;
+
+    // DEBUG VISUAL - TAMPILKAN DI POJOK
+    $debugInfo = [
+        'from' => 'AppServiceProvider',
+        'notif_count' => count($displayNotifications),
+        'unread' => $displayUnread,
+        'path' => request()->path()
+    ];
 @endphp
 
-<!-- DEBUG INFO - HITAM -->
-<div class="fixed top-20 right-0 bg-black text-white text-xs p-2 z-50 rounded-l opacity-90 min-w-[200px]">
-    <div class="font-bold text-yellow-300">🔔 NOTIF DEBUG</div>
-    <div>📊 Count: {{ count($notifications) }}</div>
-    <div>👁️ Unread: {{ $unreadCount }}</div>
+<!-- DEBUG INFO - Tampilkan di pojok kanan atas -->
+<div style="position:fixed; top:60px; right:10px; background:black; color:white; padding:10px; border-radius:5px; z-index:9999; font-size:12px; opacity:0.9;">
+    <div style="font-weight:bold; color:#FFD700;">🔔 NOTIF DEBUG (AppServiceProvider)</div>
+    <div>📊 Count: {{ count($displayNotifications) }}</div>
+    <div>👁️ Unread: {{ $displayUnread }}</div>
     <div>📍 Path: {{ request()->path() }}</div>
-    @if(count($notifications) > 0)
-        <div class="border-t border-gray-600 mt-1 pt-1 text-green-300">
-            ✅ Data ditemukan!
-            <div class="text-xs text-gray-300 mt-1">
-                <strong>Sample:</strong> {{ $notifications[0]['title'] ?? '-' }}
-            </div>
+    @if(count($displayNotifications) > 0)
+        <div style="color:#90EE90; margin-top:5px;">
+            ✅ Data: {{ $displayNotifications[0]['title'] ?? '' }}
         </div>
     @else
-        <div class="border-t border-gray-600 mt-1 pt-1 text-red-300">
+        <div style="color:#FF6B6B; margin-top:5px;">
             ❌ TIDAK ADA DATA
         </div>
     @endif
 </div>
 
-<!-- BELL ICON TAMPAK SELALU -->
 <div class="relative" x-data="{ open: false, showAllModal: false }">
     <!-- Bell Icon -->
     <button @click="open = !open" class="relative p-2 text-gray-600 hover:text-blue-600 focus:outline-none">
         <i class="fas fa-bell text-lg sm:text-xl"></i>
-        @if($unreadCount > 0)
+        @if($displayUnread > 0)
         <span class="absolute top-0 right-0 w-3 h-3 sm:w-4 sm:h-4 bg-red-500 text-white text-[10px] sm:text-xs rounded-full flex items-center justify-center">
-            {{ $unreadCount }}
+            {{ $displayUnread }}
         </span>
         @else
         <span class="absolute top-0 right-0 w-3 h-3 sm:w-4 sm:h-4 bg-gray-400 text-white text-[10px] sm:text-xs rounded-full flex items-center justify-center">
@@ -50,7 +54,7 @@
 
         <div class="px-4 py-2 border-b flex justify-between items-center">
             <h3 class="font-semibold text-gray-800">Notifikasi</h3>
-            @if($unreadCount > 0)
+            @if($displayUnread > 0)
             <form action="{{ route('notifications.mark-all-read') }}" method="POST">
                 @csrf
                 <button class="text-xs text-blue-600 hover:underline">
@@ -61,7 +65,7 @@
         </div>
 
         <div class="max-h-96 overflow-y-auto">
-            @forelse($notifications as $notif)
+            @forelse($displayNotifications as $notif)
             <div class="px-4 py-3 hover:bg-gray-50 border-b">
                 <div class="flex gap-2">
                     <div class="w-8 h-8 rounded-lg flex items-center justify-center {{ $notif['bg_color'] ?? 'bg-gray-100' }}">
@@ -97,90 +101,26 @@
         </div>
     </div>
 
-    <!-- MODAL SEMUA NOTIFIKASI -->
+    <!-- MODAL SEMUA NOTIFIKASI (SEDERHANA UNTUK TEST) -->
     <div x-show="showAllModal"
          x-cloak
          class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
          @click.self="showAllModal = false">
-
-        <div class="bg-white w-full max-w-2xl max-h-[90vh] rounded-xl shadow-xl flex flex-col"
-             x-data="{
-                 notifications: {{ json_encode($notifications) }},
-                 filter: 'all',
-
-                 get filteredNotifications() {
-                     if (this.filter === 'all') return this.notifications;
-                     if (this.filter === 'unread') return this.notifications.filter(n => !n.is_read);
-                     return this.notifications.filter(n => n.is_read);
-                 }
-             }">
-
-            <!-- HEADER MODAL -->
-            <div class="flex justify-between items-center p-4 border-b">
-                <h2 class="font-bold text-lg">Semua Notifikasi</h2>
-                <button @click="showAllModal = false" class="text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times"></i>
-                </button>
+        <div class="bg-white w-full max-w-2xl max-h-[90vh] rounded-xl shadow-xl flex flex-col">
+            <div class="p-4 border-b flex justify-between">
+                <h2 class="text-lg font-bold">Semua Notifikasi</h2>
+                <button @click="showAllModal = false">✕</button>
             </div>
-
-            <!-- FILTER TABS -->
-            <div class="flex gap-2 p-3 border-b">
-                <button @click="filter = 'all'"
-                        :class="filter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
-                        class="px-3 py-1 rounded text-sm transition-colors">
-                    Semua
-                </button>
-                <button @click="filter = 'unread'"
-                        :class="filter === 'unread' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
-                        class="px-3 py-1 rounded text-sm transition-colors">
-                    Belum Dibaca
-                </button>
-                <button @click="filter = 'read'"
-                        :class="filter === 'read' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
-                        class="px-3 py-1 rounded text-sm transition-colors">
-                    Sudah Dibaca
-                </button>
-            </div>
-
-            <!-- DAFTAR NOTIFIKASI -->
             <div class="flex-1 overflow-y-auto p-4">
-                <template x-if="filteredNotifications.length > 0">
-                    <div>
-                        <template x-for="notif in filteredNotifications" :key="notif.id">
-                            <div class="border rounded-lg p-3 mb-2"
-                                 :class="{ 'bg-blue-50 border-blue-200': !notif.is_read }">
-                                <div class="flex items-start gap-2">
-                                    <div class="w-8 h-8 rounded-lg flex items-center justify-center"
-                                         :class="notif.bg_color || 'bg-gray-100'">
-                                        <i class="fas fa-bell text-sm" :class="notif.text_color || 'text-gray-600'"></i>
-                                    </div>
-                                    <div class="flex-1">
-                                        <p class="text-sm font-medium" x-text="notif.title"></p>
-                                        <p class="text-xs text-gray-600" x-text="notif.message"></p>
-                                        <p class="text-xs text-gray-400" x-text="notif.time"></p>
-                                    </div>
-                                </div>
-                            </div>
-                        </template>
-                    </div>
-                </template>
-                <template x-if="filteredNotifications.length === 0">
-                    <div class="text-center py-8 text-gray-500">
-                        <i class="fas fa-bell-slash text-3xl text-gray-300 mb-2"></i>
-                        <p class="text-sm">Tidak ada notifikasi</p>
-                    </div>
-                </template>
-            </div>
-
-            <!-- FOOTER -->
-            <div class="p-4 border-t flex justify-between items-center">
-                <div class="text-sm text-gray-600">
-                    <span x-text="filteredNotifications.length"></span> notifikasi
+                @forelse($displayNotifications as $notif)
+                <div class="border-b py-2">
+                    <p class="font-medium">{{ $notif['title'] }}</p>
+                    <p class="text-sm text-gray-600">{{ $notif['message'] }}</p>
+                    <p class="text-xs text-gray-400">{{ $notif['time'] }}</p>
                 </div>
-                <button @click="showAllModal = false"
-                        class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">
-                    Tutup
-                </button>
+                @empty
+                <p class="text-center text-gray-500">Tidak ada notifikasi</p>
+                @endforelse
             </div>
         </div>
     </div>
