@@ -22,55 +22,6 @@ use App\Http\Controllers\Auth\GoogleController;
 | Web Routes
 |--------------------------------------------------------------------------
 */
-Route::get('/debug-notif', function() {
-    if (!auth()->check()) {
-        return "Harus login!";
-    }
-
-    $user = auth()->user();
-
-    // Test 1: Query langsung via model
-    $notifications = App\Models\Notification::where('user_id', $user->id)
-        ->latest()
-        ->limit(5)
-       ->get();
-
-    // Test 2: Cek scopes
-    $unreadCount = App\Models\Notification::where('user_id', $user->id)
-        ->unread()
-        ->count();
-
-    $output = "<h1>Debug Notifikasi</h1>";
-    $output .= "<h3>User: {$user->name} ({$user->id})</h3>";
-
-    $output .= "<h4>Query Langsung:</h4>";
-    $output .= "<pre>Total notif di DB: " . App\Models\Notification::where('user_id', $user->id)->count() . "</pre>";
-    $output .= "<pre>Unread count (pakai scope): {$unreadCount}</pre>";
-
-    $output .= "<h4>5 Notifikasi Terbaru:</h4>";
-    if ($notifications->isEmpty()) {
-        $output .= "<p style='color:red'>❌ TIDAK ADA NOTIFIKASI!</p>";
-    } else {
-        foreach ($notifications as $n) {
-            $output .= "<div style='border:1px solid #ccc; margin:5px; padding:5px'>";
-            $output .= "<strong>ID:</strong> {$n->id}<br>";
-            $output .= "<strong>Type:</strong> {$n->type}<br>";
-            $output .= "<strong>Title:</strong> {$n->title}<br>";
-            $output .= "<strong>Message:</strong> {$n->message}<br>";
-            $output .= "<strong>is_read:</strong> {$n->is_read}<br>";
-            $output .= "<strong>Created:</strong> {$n->created_at}<br>";
-            $output .= "<strong>Formatted time:</strong> {$n->formatted_time}<br>";
-            $output .= "</div>";
-        }
-    }
-
-    // Test 3: Cek ViewServiceProvider
-    $output .= "<h4>Data dari ViewComposer (harusnya di debug HTML):</h4>";
-    $output .= "<p>Lihat di HTML source untuk comment <!-- NOTIF WORKS: ... --></p>";
-
-    return $output;
-})->middleware('auth');
-
 Route::get('/health', function() {
     return response()->json([
         'status' => 'healthy',
