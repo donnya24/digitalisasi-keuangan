@@ -14,252 +14,281 @@ class DashboardController extends Controller
      * Display the dashboard with real data from database.
      */
     public function index()
-    {
-        $user = auth()->user();
-        $userId = $user->id;
-        $today = Carbon::now('Asia/Jakarta')->toDateString();
-        $yesterday = Carbon::now('Asia/Jakarta')->subDay()->toDateString();
+        {
+            $user = auth()->user();
+            $userId = $user->id;
+            $today = Carbon::now('Asia/Jakarta')->toDateString();
+            $yesterday = Carbon::now('Asia/Jakarta')->subDay()->toDateString();
 
-        // ========== CACHE KEY UNTUK SETIAP QUERY ==========
-        $cacheKeyTodayIncome = "dashboard.{$userId}.today_income";
-        $cacheKeyTodayExpense = "dashboard.{$userId}.today_expense";
-        $cacheKeyYesterdayIncome = "dashboard.{$userId}.yesterday_income";
-        $cacheKeyYesterdayExpense = "dashboard.{$userId}.yesterday_expense";
-        $cacheKeyCurrentBalance = "dashboard.{$userId}.current_balance";
-        $cacheKeyLast7Days = "dashboard.{$userId}.last_7_days";
-        $cacheKeyLast30Days = "dashboard.{$userId}.last_30_days";
-        $cacheKeyMonthStats = "dashboard.{$userId}.month_stats";
+            // ========== HAPUS SEMUA CACHE DULU ==========
+            $this->clearDashboardCache($userId);
 
-        // Cache time: 5 menit (300 detik)
-        $cacheTime = 300;
+            // ========== CACHE KEY UNTUK SETIAP QUERY ==========
+            $cacheKeyTodayIncome = "dashboard.{$userId}.today_income";
+            $cacheKeyTodayExpense = "dashboard.{$userId}.today_expense";
+            $cacheKeyYesterdayIncome = "dashboard.{$userId}.yesterday_income";
+            $cacheKeyYesterdayExpense = "dashboard.{$userId}.yesterday_expense";
+            $cacheKeyCurrentBalance = "dashboard.{$userId}.current_balance";
+            $cacheKeyLast7Days = "dashboard.{$userId}.last_7_days";
+            $cacheKeyLast30Days = "dashboard.{$userId}.last_30_days";
+            $cacheKeyMonthStats = "dashboard.{$userId}.month_stats";
 
-        // ========== DATA STATISTIK HARI INI (CACHED) ==========
-        $todayIncome = Cache::remember($cacheKeyTodayIncome, $cacheTime, function() use ($userId, $today) {
-            return (float) Transaction::where('user_id', $userId)
-                ->where('type', 'pemasukan')
-                ->whereDate('transaction_date', $today)
-                ->sum('amount');
-        });
+            // Cache time: 5 menit (300 detik)
+            $cacheTime = 300;
 
-        $todayExpense = Cache::remember($cacheKeyTodayExpense, $cacheTime, function() use ($userId, $today) {
-            return (float) Transaction::where('user_id', $userId)
-                ->where('type', 'pengeluaran')
-                ->whereDate('transaction_date', $today)
-                ->sum('amount');
-        });
+            // ========== DATA STATISTIK HARI INI (CACHED) ==========
+            $todayIncome = Cache::remember($cacheKeyTodayIncome, $cacheTime, function() use ($userId, $today) {
+                return (float) Transaction::where('user_id', $userId)
+                    ->where('type', 'pemasukan')
+                    ->whereDate('transaction_date', $today)
+                    ->sum('amount');
+            });
 
-        $todayProfit = $todayIncome - $todayExpense;
+            $todayExpense = Cache::remember($cacheKeyTodayExpense, $cacheTime, function() use ($userId, $today) {
+                return (float) Transaction::where('user_id', $userId)
+                    ->where('type', 'pengeluaran')
+                    ->whereDate('transaction_date', $today)
+                    ->sum('amount');
+            });
 
-        // Data kemarin (cached)
-        $yesterdayIncome = Cache::remember($cacheKeyYesterdayIncome, $cacheTime, function() use ($userId, $yesterday) {
-            return (float) Transaction::where('user_id', $userId)
-                ->where('type', 'pemasukan')
-                ->whereDate('transaction_date', $yesterday)
-                ->sum('amount');
-        });
+            $todayProfit = $todayIncome - $todayExpense;
 
-        $yesterdayExpense = Cache::remember($cacheKeyYesterdayExpense, $cacheTime, function() use ($userId, $yesterday) {
-            return (float) Transaction::where('user_id', $userId)
-                ->where('type', 'pengeluaran')
-                ->whereDate('transaction_date', $yesterday)
-                ->sum('amount');
-        });
+            // Data kemarin (cached)
+            $yesterdayIncome = Cache::remember($cacheKeyYesterdayIncome, $cacheTime, function() use ($userId, $yesterday) {
+                return (float) Transaction::where('user_id', $userId)
+                    ->where('type', 'pemasukan')
+                    ->whereDate('transaction_date', $yesterday)
+                    ->sum('amount');
+            });
 
-        $yesterdayProfit = $yesterdayIncome - $yesterdayExpense;
+            $yesterdayExpense = Cache::remember($cacheKeyYesterdayExpense, $cacheTime, function() use ($userId, $yesterday) {
+                return (float) Transaction::where('user_id', $userId)
+                    ->where('type', 'pengeluaran')
+                    ->whereDate('transaction_date', $yesterday)
+                    ->sum('amount');
+            });
 
-        // Hitung persentase perubahan
-        $incomeChange = $this->calculatePercentageChange($yesterdayIncome, $todayIncome);
-        $expenseChange = $this->calculatePercentageChange($yesterdayExpense, $todayExpense);
-        $profitChange = $this->calculatePercentageChange($yesterdayProfit, $todayProfit);
+            $yesterdayProfit = $yesterdayIncome - $yesterdayExpense;
 
-        $incomeArrow = $incomeChange >= 0 ? 'up' : 'down';
-        $expenseArrow = $expenseChange >= 0 ? 'up' : 'down';
-        $profitArrow = $profitChange >= 0 ? 'up' : 'down';
+            // Hitung persentase perubahan
+            $incomeChange = $this->calculatePercentageChange($yesterdayIncome, $todayIncome);
+            $expenseChange = $this->calculatePercentageChange($yesterdayExpense, $todayExpense);
+            $profitChange = $this->calculatePercentageChange($yesterdayProfit, $todayProfit);
 
-        // Saldo usaha (cached - lebih lama)
-        $currentBalance = Cache::remember($cacheKeyCurrentBalance, 600, function() use ($userId) {
-            return $this->calculateCurrentBalance($userId);
-        });
+            $incomeArrow = $incomeChange >= 0 ? 'up' : 'down';
+            $expenseArrow = $expenseChange >= 0 ? 'up' : 'down';
+            $profitArrow = $profitChange >= 0 ? 'up' : 'down';
 
-        // ========== DATA GRAFIK 7 HARI TERAKHIR (CACHED) ==========
-        $cached7Days = Cache::remember($cacheKeyLast7Days, $cacheTime, function() use ($userId) {
-            $chartLabels = [];
-            $incomeData = [];
-            $expenseData = [];
+            // Saldo usaha (cached - lebih lama)
+            $currentBalance = Cache::remember($cacheKeyCurrentBalance, 600, function() use ($userId) {
+                return $this->calculateCurrentBalance($userId);
+            });
 
-            for ($i = 6; $i >= 0; $i--) {
-                $date = Carbon::now('Asia/Jakarta')->subDays($i)->toDateString();
-                $dayData = DailySummary::where('user_id', $userId)
-                    ->where('date', $date)
-                    ->first();
+            // ========== DATA GRAFIK 7 HARI TERAKHIR (CACHED) ==========
+            $cached7Days = Cache::remember($cacheKeyLast7Days, $cacheTime, function() use ($userId) {
+                $chartLabels = [];
+                $incomeData = [];
+                $expenseData = [];
 
-                $dayIncome = (float) ($dayData->total_income ?? 0);
-                $dayExpense = (float) ($dayData->total_expense ?? 0);
+                for ($i = 6; $i >= 0; $i--) {
+                    $date = Carbon::now('Asia/Jakarta')->subDays($i)->toDateString();
+                    $dayData = DailySummary::where('user_id', $userId)
+                        ->where('date', $date)
+                        ->first();
 
-                $chartLabels[] = Carbon::parse($date)->translatedFormat('D');
-                $incomeData[] = $dayIncome;
-                $expenseData[] = $dayExpense;
-            }
+                    $dayIncome = (float) ($dayData->total_income ?? 0);
+                    $dayExpense = (float) ($dayData->total_expense ?? 0);
 
-            return [
-                'labels' => $chartLabels,
-                'income' => $incomeData,
-                'expense' => $expenseData,
-                'has_data' => collect($incomeData)->sum() > 0 || collect($expenseData)->sum() > 0,
-            ];
-        });
-
-        $chartLabels = $cached7Days['labels'];
-        $incomeData = $cached7Days['income'];
-        $expenseData = $cached7Days['expense'];
-        $has7DaysData = $cached7Days['has_data'];
-
-        // ========== DATA GRAFIK LABA 30 HARI (CACHED) ==========
-        $cached30Days = Cache::remember($cacheKeyLast30Days, 600, function() use ($userId) {
-            $profitLabels = [];
-            $profitData = [];
-            $hasData = false;
-
-            $dailyProfits = DailySummary::where('user_id', $userId)
-                ->where('date', '>=', Carbon::now('Asia/Jakarta')->subDays(30))
-                ->orderBy('date')
-                ->get();
-
-            if ($dailyProfits->isNotEmpty() && $dailyProfits->sum('net_profit') != 0) {
-                $hasData = true;
-
-                // Jika data kurang dari 7, tampilkan semua
-                if ($dailyProfits->count() <= 7) {
-                    foreach ($dailyProfits as $item) {
-                        $profitLabels[] = Carbon::parse($item->date)->translatedFormat('d M');
-                        $profitData[] = (float) $item->net_profit;
-                    }
-                } else {
-                    // Sampling data - ambil 7 titik merata
-                    $step = floor($dailyProfits->count() / 7);
-                    for ($i = 0; $i < 7; $i++) {
-                        $index = min($i * $step, $dailyProfits->count() - 1);
-                        $item = $dailyProfits[$index];
-                        $profitLabels[] = Carbon::parse($item->date)->translatedFormat('d M');
-                        $profitData[] = (float) $item->net_profit;
-                    }
+                    $chartLabels[] = Carbon::parse($date)->translatedFormat('D');
+                    $incomeData[] = $dayIncome;
+                    $expenseData[] = $dayExpense;
                 }
-            }
-
-            return [
-                'labels' => $profitLabels,
-                'data' => $profitData,
-                'has_data' => $hasData,
-            ];
-        });
-
-        $profitLabels = $cached30Days['labels'];
-        $profitData = $cached30Days['data'];
-        $hasProfitData = $cached30Days['has_data'];
-
-        // ========== DATA BULAN INI (CACHED) ==========
-        $cachedMonthStats = Cache::remember($cacheKeyMonthStats, 600, function() use ($userId) {
-            $monthStart = Carbon::now('Asia/Jakarta')->startOfMonth()->toDateString();
-            $monthEnd = Carbon::now('Asia/Jakarta')->endOfMonth()->toDateString();
-
-            $monthIncome = (float) Transaction::where('user_id', $userId)
-                ->where('type', 'pemasukan')
-                ->whereBetween('transaction_date', [$monthStart, $monthEnd])
-                ->sum('amount');
-
-            $monthExpense = (float) Transaction::where('user_id', $userId)
-                ->where('type', 'pengeluaran')
-                ->whereBetween('transaction_date', [$monthStart, $monthEnd])
-                ->sum('amount');
-
-            $monthProfit = $monthIncome - $monthExpense;
-
-            $monthPrive = (float) Prive::where('user_id', $userId)
-                ->whereBetween('prive_date', [$monthStart, $monthEnd])
-                ->where('is_approved', 'approved')
-                ->sum('amount');
-
-            return [
-                'income' => $monthIncome,
-                'expense' => $monthExpense,
-                'profit' => $monthProfit,
-                'prive' => $monthPrive,
-                'has_data' => $monthIncome > 0 || $monthExpense > 0,
-            ];
-        });
-
-        $monthIncome = $cachedMonthStats['income'];
-        $monthExpense = $cachedMonthStats['expense'];
-        $monthProfit = $cachedMonthStats['profit'];
-        $monthPrive = $cachedMonthStats['prive'];
-        $hasMonthData = $cachedMonthStats['has_data'];
-
-        // Target laba bulanan (dari config)
-        $targetProfit = config('business.target_profit', 10000000);
-        $profitPercentage = $targetProfit > 0 ? min(100, round(($monthProfit / $targetProfit) * 100)) : 0;
-
-        // ========== GENERATE DAN SIMPAN NOTIFIKASI KE DATABASE ==========
-        $this->generateAndSaveNotifications(
-            $userId,
-            $today,
-            $yesterday,
-            $todayIncome,
-            $todayExpense,
-            $currentBalance,
-            $monthProfit,
-            $targetProfit
-        );
-
-        // ========== TRANSAKSI TERBARU ==========
-        $recentTransactions = Transaction::with('category')
-            ->where('user_id', $userId)
-            ->orderBy('transaction_date', 'desc')
-            ->orderBy('created_at', 'desc')
-            ->limit(5)
-            ->get()
-            ->map(function ($transaction) {
-                $categoryIcon = $transaction->category->icon ?? 'tag';
 
                 return [
-                    'id' => $transaction->id,
-                    'description' => $transaction->description,
-                    'amount' => (float) $transaction->amount,
-                    'type' => $transaction->type,
-                    'category' => $transaction->category->name ?? 'Tanpa Kategori',
-                    'icon' => $categoryIcon,
-                    'color' => $transaction->type == 'pemasukan' ? 'green' : 'red',
-                    'time_ago' => $this->timeAgo($transaction->created_at),
+                    'labels' => $chartLabels,
+                    'income' => $incomeData,
+                    'expense' => $expenseData,
+                    'has_data' => collect($incomeData)->sum() > 0 || collect($expenseData)->sum() > 0,
                 ];
             });
 
-        return view('dashboard.index', compact(
-            'todayIncome',
-            'todayExpense',
-            'todayProfit',
-            'currentBalance',
-            'incomeChange',
-            'expenseChange',
-            'profitChange',
-            'incomeArrow',
-            'expenseArrow',
-            'profitArrow',
-            'chartLabels',
-            'incomeData',
-            'expenseData',
-            'has7DaysData',
-            'profitLabels',
-            'profitData',
-            'hasProfitData',
-            'monthIncome',
-            'monthExpense',
-            'monthProfit',
-            'monthPrive',
-            'hasMonthData',
-            'targetProfit',
-            'profitPercentage',
-            'recentTransactions'
-        ));
-    }
+            $chartLabels = $cached7Days['labels'];
+            $incomeData = $cached7Days['income'];
+            $expenseData = $cached7Days['expense'];
+            $has7DaysData = $cached7Days['has_data'];
+
+            // ========== DATA GRAFIK LABA 30 HARI (CACHED) ==========
+            $cached30Days = Cache::remember($cacheKeyLast30Days, 600, function() use ($userId) {
+                $profitLabels = [];
+                $profitData = [];
+                $hasData = false;
+
+                $dailyProfits = DailySummary::where('user_id', $userId)
+                    ->where('date', '>=', Carbon::now('Asia/Jakarta')->subDays(30))
+                    ->orderBy('date')
+                    ->get();
+
+                if ($dailyProfits->isNotEmpty() && $dailyProfits->sum('net_profit') != 0) {
+                    $hasData = true;
+
+                    // Jika data kurang dari 7, tampilkan semua
+                    if ($dailyProfits->count() <= 7) {
+                        foreach ($dailyProfits as $item) {
+                            $profitLabels[] = Carbon::parse($item->date)->translatedFormat('d M');
+                            $profitData[] = (float) $item->net_profit;
+                        }
+                    } else {
+                        // Sampling data - ambil 7 titik merata
+                        $step = floor($dailyProfits->count() / 7);
+                        for ($i = 0; $i < 7; $i++) {
+                            $index = min($i * $step, $dailyProfits->count() - 1);
+                            $item = $dailyProfits[$index];
+                            $profitLabels[] = Carbon::parse($item->date)->translatedFormat('d M');
+                            $profitData[] = (float) $item->net_profit;
+                        }
+                    }
+                }
+
+                return [
+                    'labels' => $profitLabels,
+                    'data' => $profitData,
+                    'has_data' => $hasData,
+                ];
+            });
+
+            $profitLabels = $cached30Days['labels'];
+            $profitData = $cached30Days['data'];
+            $hasProfitData = $cached30Days['has_data'];
+
+            // ========== DATA BULAN INI (CACHED) ==========
+            $cachedMonthStats = Cache::remember($cacheKeyMonthStats, 600, function() use ($userId) {
+                $monthStart = Carbon::now('Asia/Jakarta')->startOfMonth()->toDateString();
+                $monthEnd = Carbon::now('Asia/Jakarta')->endOfMonth()->toDateString();
+
+                $monthIncome = (float) Transaction::where('user_id', $userId)
+                    ->where('type', 'pemasukan')
+                    ->whereBetween('transaction_date', [$monthStart, $monthEnd])
+                    ->sum('amount');
+
+                $monthExpense = (float) Transaction::where('user_id', $userId)
+                    ->where('type', 'pengeluaran')
+                    ->whereBetween('transaction_date', [$monthStart, $monthEnd])
+                    ->sum('amount');
+
+                $monthProfit = $monthIncome - $monthExpense;
+
+                $monthPrive = (float) Prive::where('user_id', $userId)
+                    ->whereBetween('prive_date', [$monthStart, $monthEnd])
+                    ->where('is_approved', 'approved')
+                    ->sum('amount');
+
+                return [
+                    'income' => $monthIncome,
+                    'expense' => $monthExpense,
+                    'profit' => $monthProfit,
+                    'prive' => $monthPrive,
+                    'has_data' => $monthIncome > 0 || $monthExpense > 0,
+                ];
+            });
+
+            $monthIncome = $cachedMonthStats['income'];
+            $monthExpense = $cachedMonthStats['expense'];
+            $monthProfit = $cachedMonthStats['profit'];
+            $monthPrive = $cachedMonthStats['prive'];
+            $hasMonthData = $cachedMonthStats['has_data'];
+
+            // Target laba bulanan (dari config)
+            $targetProfit = config('business.target_profit', 10000000);
+            $profitPercentage = $targetProfit > 0 ? min(100, round(($monthProfit / $targetProfit) * 100)) : 0;
+
+            // ========== GENERATE DAN SIMPAN NOTIFIKASI KE DATABASE ==========
+            $this->generateAndSaveNotifications(
+                $userId,
+                $today,
+                $yesterday,
+                $todayIncome,
+                $todayExpense,
+                $currentBalance,
+                $monthProfit,
+                $targetProfit
+            );
+
+            // ========== TRANSAKSI TERBARU ==========
+            $recentTransactions = Transaction::with('category')
+                ->where('user_id', $userId)
+                ->orderBy('transaction_date', 'desc')
+                ->orderBy('created_at', 'desc')
+                ->limit(5)
+                ->get()
+                ->map(function ($transaction) {
+                    $categoryIcon = $transaction->category->icon ?? 'tag';
+
+                    return [
+                        'id' => $transaction->id,
+                        'description' => $transaction->description,
+                        'amount' => (float) $transaction->amount,
+                        'type' => $transaction->type,
+                        'category' => $transaction->category->name ?? 'Tanpa Kategori',
+                        'icon' => $categoryIcon,
+                        'color' => $transaction->type == 'pemasukan' ? 'green' : 'red',
+                        'time_ago' => $this->timeAgo($transaction->created_at),
+                    ];
+                });
+
+            return view('dashboard.index', compact(
+                'todayIncome',
+                'todayExpense',
+                'todayProfit',
+                'currentBalance',
+                'incomeChange',
+                'expenseChange',
+                'profitChange',
+                'incomeArrow',
+                'expenseArrow',
+                'profitArrow',
+                'chartLabels',
+                'incomeData',
+                'expenseData',
+                'has7DaysData',
+                'profitLabels',
+                'profitData',
+                'hasProfitData',
+                'monthIncome',
+                'monthExpense',
+                'monthProfit',
+                'monthPrive',
+                'hasMonthData',
+                'targetProfit',
+                'profitPercentage',
+                'recentTransactions'
+            ));
+        }
+
+        /**
+         * Hapus semua cache dashboard untuk user tertentu
+         */
+        private function clearDashboardCache($userId): void
+        {
+            $cacheKeys = [
+                "dashboard.{$userId}.today_income",
+                "dashboard.{$userId}.today_expense",
+                "dashboard.{$userId}.yesterday_income",
+                "dashboard.{$userId}.yesterday_expense",
+                "dashboard.{$userId}.current_balance",
+                "dashboard.{$userId}.last_7_days",
+                "dashboard.{$userId}.last_30_days",
+                "dashboard.{$userId}.month_stats",
+            ];
+
+            foreach ($cacheKeys as $key) {
+                if (Cache::has($key)) {
+                    Cache::forget($key);
+                }
+            }
+
+            // Log untuk debugging (opsional)
+            \Log::info("Dashboard cache cleared for user {$userId}");
+        }
 
     /**
      * Calculate percentage change between two values.
