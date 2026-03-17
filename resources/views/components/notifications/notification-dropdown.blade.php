@@ -129,8 +129,8 @@
                 </div>
             </div>
 
-            <!-- CONTENT MODAL -->
-            <div class="overflow-y-auto flex-1 px-4 sm:px-6 py-3 sm:py-4">
+            <!-- CONTENT MODAL - SCROLL AREA -->
+            <div class="overflow-y-auto flex-1 px-4 sm:px-6 py-3 sm:py-4" style="max-height: 400px;">
                 <template x-if="filteredNotifications.length > 0">
                     <div class="space-y-2 sm:space-y-3">
                         <template x-for="notif in filteredNotifications" :key="notif.id">
@@ -240,7 +240,7 @@
 
 /* Custom scrollbar untuk konten */
 .overflow-y-auto::-webkit-scrollbar {
-    width: 4px;
+    width: 6px;
 }
 
 .overflow-y-auto::-webkit-scrollbar-track {

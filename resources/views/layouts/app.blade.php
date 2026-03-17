@@ -29,16 +29,16 @@
                 notifications: [],
                 unreadCount: 0,
                 filter: 'all',
-                
+
                 init() {
                     this.loadNotifications();
-                    
+
                     // Auto refresh setiap 30 detik
                     setInterval(() => {
                         this.loadNotifications();
                     }, 30000);
                 },
-                
+
                 loadNotifications() {
                     fetch('{{ route("notifications.latest") }}')
                         .then(response => response.json())
@@ -49,7 +49,7 @@
                         })
                         .catch(error => console.error('Error loading notifications:', error));
                 },
-                
+
                 get filteredNotifications() {
                     if (!this.notifications) return [];
                     if (this.filter === 'all') return this.notifications;
@@ -58,7 +58,7 @@
                     }
                     return this.notifications.filter(n => n.is_read);
                 },
-                
+
                 markAsRead(id) {
                     fetch(`/notifications/${id}/mark-read`, {
                         method: 'POST',
@@ -74,7 +74,7 @@
                         }
                     });
                 },
-                
+
                 markAllAsRead() {
                     fetch('{{ route("notifications.mark-all-read") }}', {
                         method: 'POST',
@@ -87,7 +87,7 @@
                         this.unreadCount = 0;
                     });
                 },
-                
+
                 deleteNotification(id) {
                     if (confirm('Hapus notifikasi ini?')) {
                         fetch(`/notifications/${id}`, {
@@ -113,6 +113,32 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     @stack('styles')
+    <!-- Custom Mobile Styles -->
+<style>
+    /* Pastikan spinner terlihat di mobile */
+    @media (max-width: 640px) {
+        #loading-spinner > div {
+            max-width: 80vw;
+            margin: 0 20px;
+        }
+
+        #loading-spinner .animate-spin {
+            width: 48px;
+            height: 48px;
+            border-width: 4px;
+        }
+    }
+
+    /* Animasi fade untuk spinner */
+    #loading-spinner {
+        transition: opacity 0.2s ease-in-out;
+        opacity: 1;
+    }
+
+    #loading-spinner.hidden {
+        display: none !important;
+    }
+</style>
 </head>
 <body class="font-sans antialiased bg-gray-100">
     <!-- Loading Spinner -->
@@ -150,7 +176,7 @@
                                 </button>
 
                                 <!-- Dropdown -->
-                                <div x-show="open" 
+                                <div x-show="open"
                                      @click.away="open = false"
                                      class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
                                     <a href="{{ route('setting.index') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
@@ -202,15 +228,15 @@
         function confirmDelete(type, description, amount = null) {
             let title = 'Hapus ' + (type === 'prive' ? 'Prive' : 'Transaksi');
             let text = '';
-            
+
             if (type === 'prive') {
                 text = `Apakah Anda yakin ingin menghapus prive sebesar Rp ${new Intl.NumberFormat('id-ID').format(amount)}?`;
             } else {
                 text = `Apakah Anda yakin ingin menghapus transaksi "${description}"?`;
             }
-            
+
             text += ' Data yang sudah dihapus tidak dapat dikembalikan.';
-            
+
             Swal.fire({
                 title: title,
                 text: text,
@@ -232,48 +258,123 @@
                     }
                 }
             });
-            
+
             return false;
         }
     </script>
 
-    <!-- Spinner Script -->
+    <!-- Spinner Script - Optimized for Mobile -->
     <script>
         (function() {
+            // Spinner elements
+            let spinner = document.getElementById('loading-spinner');
+            let timeoutId = null;
+
+            // Fungsi untuk menampilkan spinner dengan delay minimal
             function showSpinner() {
-                const spinner = document.getElementById('loading-spinner');
-                if (spinner) spinner.classList.remove('hidden');
+                // Hapus timeout jika ada
+                if (timeoutId) clearTimeout(timeoutId);
+
+                if (spinner) {
+                    spinner.classList.remove('hidden');
+                    // Sembunyikan otomatis setelah 10 detik (fallback)
+                    timeoutId = setTimeout(() => {
+                        hideSpinner();
+                    }, 10000);
+                }
             }
 
+            // Fungsi untuk menyembunyikan spinner
             function hideSpinner() {
-                const spinner = document.getElementById('loading-spinner');
-                if (spinner) spinner.classList.add('hidden');
+                if (spinner) {
+                    spinner.classList.add('hidden');
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                        timeoutId = null;
+                    }
+                }
             }
 
+            // Handler untuk semua klik - support mobile dan desktop
             document.addEventListener('click', function(e) {
+                // Cari elemen link atau button
                 const link = e.target.closest('a');
-                if (!link) return;
-                if (link.target === '_blank') return;
-                if (link.hasAttribute('download')) return;
-                if (link.hostname && link.hostname !== window.location.hostname) return;
+                const button = e.target.closest('button[type="submit"]');
+                const form = e.target.closest('form');
+
+                // Skip untuk link dengan target _blank atau download
+                if (link) {
+                    if (link.target === '_blank') return;
+                    if (link.hasAttribute('download')) return;
+                    if (link.hostname && link.hostname !== window.location.hostname) return;
+                    if (link.hash && link.href === window.location.href) return;
+
+                    showSpinner();
+                }
+
+                // Untuk submit button dalam form
+                if (button && button.type === 'submit') {
+                    showSpinner();
+                }
+
+                // Untuk form submission via JavaScript
+                if (form && !button) {
+                    // Cek apakah form akan di-submit
+                    if (form.method && form.method.toLowerCase() === 'post') {
+                        showSpinner();
+                    }
+                }
+            });
+
+            // Handle form submission via JavaScript
+            document.addEventListener('submit', function(e) {
                 showSpinner();
             });
 
-            document.addEventListener('submit', function() {
-                showSpinner();
-            });
+            // Handle touch events untuk mobile
+            document.addEventListener('touchstart', function(e) {
+                const link = e.target.closest('a');
+                const button = e.target.closest('button[type="submit"]');
 
+                if (link || button) {
+                    // Delay sebentar untuk memastikan bukan scroll
+                    setTimeout(() => {
+                        showSpinner();
+                    }, 50);
+                }
+            }, { passive: true });
+
+            // Sembunyikan spinner saat halaman selesai dimuat
             window.addEventListener('load', hideSpinner);
+            window.addEventListener('pageshow', hideSpinner);
+
+            // Sembunyikan spinner jika terjadi error
             window.addEventListener('error', hideSpinner);
 
+            // Override fetch untuk AJAX requests
             const originalFetch = window.fetch;
             window.fetch = function() {
                 showSpinner();
-                return originalFetch.apply(this, arguments).finally(hideSpinner);
+                return originalFetch.apply(this, arguments)
+                    .finally(() => hideSpinner());
+            };
+
+            // Override XMLHttpRequest untuk AJAX lama
+            const originalXHROpen = XMLHttpRequest.prototype.open;
+            const originalXHRSend = XMLHttpRequest.prototype.send;
+
+            XMLHttpRequest.prototype.open = function() {
+                this._url = arguments[1];
+                return originalXHROpen.apply(this, arguments);
+            };
+
+            XMLHttpRequest.prototype.send = function() {
+                showSpinner();
+                this.addEventListener('loadend', () => hideSpinner());
+                return originalXHRSend.apply(this, arguments);
             };
         })();
     </script>
-
     @stack('scripts')
 </body>
 </html>
