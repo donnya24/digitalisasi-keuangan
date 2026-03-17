@@ -295,6 +295,9 @@ class DashboardController extends Controller
     /**
      * Generate dan simpan notifikasi ke database.
      */
+    /**
+ * Generate dan simpan notifikasi ke database.
+ */
     private function generateAndSaveNotifications($userId, $today, $yesterday, $todayIncome, $todayExpense, $currentBalance, $monthProfit, $targetProfit): void
     {
         // Cek apakah user punya data transaksi sama sekali
@@ -304,7 +307,7 @@ class DashboardController extends Controller
             return; // Jika tidak ada transaksi, jangan buat notifikasi
         }
 
-        // ========== 1. CEK LABA MENURUN ==========
+        // ========== 1. CEK LABA MENURUN DENGAN PENCEGAHAN DUPLIKASI ==========
         $todaySummary = DailySummary::where('user_id', $userId)
             ->where('date', $today)
             ->first();
@@ -319,24 +322,31 @@ class DashboardController extends Controller
                 : 0;
 
             if ($difference > 50000 || $percentageDrop > 10) {
-                \App\Models\Notification::updateOrCreate(
-                    [
+                // 🔥 CEK APAKAH SUDAH ADA NOTIFIKASI SERUPA HARI INI
+                $existingNotification = \App\Models\Notification::where('user_id', $userId)
+                    ->where('type', 'profit_decrease')
+                    ->whereDate('created_at', Carbon::today())
+                    ->first();
+
+                // HANYA BUAT JIKA BELUM ADA
+                if (!$existingNotification) {
+                    \App\Models\Notification::create([
                         'user_id' => $userId,
                         'type' => 'profit_decrease',
-                        'created_at' => Carbon::today(),
-                    ],
-                    [
                         'title' => '⚠️ Laba Menurun',
                         'message' => 'Laba hari ini turun Rp ' . number_format($difference, 0, ',', '.') . ' (' . $percentageDrop . '%) dari kemarin',
                         'is_read' => 'unread',
+                        'icon' => 'exclamation-triangle',
+                        'bg_color' => 'bg-red-50',
+                        'text_color' => 'text-red-600',
                         'data' => json_encode([
                             'today' => $todaySummary->net_profit,
                             'yesterday' => $yesterdaySummary->net_profit,
                             'difference' => $difference,
                             'percentage' => $percentageDrop,
                         ]),
-                    ]
-                );
+                    ]);
+                }
             }
         }
 
@@ -348,24 +358,30 @@ class DashboardController extends Controller
                 : 100;
 
             if ($percentageIncrease > 20) {
-                \App\Models\Notification::updateOrCreate(
-                    [
+                // 🔥 CEK DUPLIKASI
+                $existingNotification = \App\Models\Notification::where('user_id', $userId)
+                    ->where('type', 'profit_increase')
+                    ->whereDate('created_at', Carbon::today())
+                    ->first();
+
+                if (!$existingNotification) {
+                    \App\Models\Notification::create([
                         'user_id' => $userId,
                         'type' => 'profit_increase',
-                        'created_at' => Carbon::today(),
-                    ],
-                    [
                         'title' => '📈 Laba Meningkat',
                         'message' => 'Laba hari ini naik Rp ' . number_format($increase, 0, ',', '.') . ' (' . $percentageIncrease . '%) dari kemarin',
                         'is_read' => 'unread',
+                        'icon' => 'chart-line',
+                        'bg_color' => 'bg-green-50',
+                        'text_color' => 'text-green-600',
                         'data' => json_encode([
                             'today' => $todaySummary->net_profit,
                             'yesterday' => $yesterdaySummary->net_profit,
                             'increase' => $increase,
                             'percentage' => $percentageIncrease,
                         ]),
-                    ]
-                );
+                    ]);
+                }
             }
         }
 
@@ -378,48 +394,30 @@ class DashboardController extends Controller
         if ($avgExpense > 0 && $todayExpense > $avgExpense * 1.5 && $todayExpense > 0) {
             $ratio = round(($todayExpense / $avgExpense), 1);
 
-            \App\Models\Notification::updateOrCreate(
-                [
+            // 🔥 CEK DUPLIKASI
+            $existingNotification = \App\Models\Notification::where('user_id', $userId)
+                ->where('type', 'large_expense')
+                ->whereDate('created_at', Carbon::today())
+                ->first();
+
+            if (!$existingNotification) {
+                \App\Models\Notification::create([
                     'user_id' => $userId,
                     'type' => 'large_expense',
-                    'created_at' => Carbon::today(),
-                ],
-                [
                     'title' => '💰 Pengeluaran Besar',
                     'message' => 'Pengeluaran hari ini Rp ' . number_format($todayExpense, 0, ',', '.') . ' (' . $ratio . 'x rata-rata)',
                     'is_read' => 'unread',
+                    'icon' => 'bell',
+                    'bg_color' => 'bg-yellow-50',
+                    'text_color' => 'text-yellow-600',
                     'data' => json_encode([
                         'amount' => $todayExpense,
                         'average' => $avgExpense,
                         'ratio' => $ratio,
                     ]),
-                ]
-            );
+                ]);
+            }
         }
-
-        // ========== 🚫 CEK PRIVE HARI INI (DIHAPUS - PINDAH KE PRIVE CONTROLLER) ==========
-        // $todayPrive = (float) Prive::where('user_id', $userId)
-        //     ->whereDate('prive_date', $today)
-        //     ->where('is_approved', 'approved')
-        //     ->sum('amount');
-
-        // if ($todayPrive > 0) {
-        //     \App\Models\Notification::updateOrCreate(
-        //         [
-        //             'user_id' => $userId,
-        //             'type' => 'prive',
-        //             'created_at' => Carbon::today(),
-        //         ],
-        //         [
-        //             'title' => '💸 Prive',
-        //             'message' => 'Anda menarik Rp ' . number_format($todayPrive, 0, ',', '.') . ' untuk kebutuhan pribadi',
-        //             'is_read' => 'unread',
-        //             'data' => json_encode([
-        //                 'amount' => $todayPrive,
-        //             ]),
-        //         ]
-        //     );
-        // }
 
         // ========== 5. CEK SALDO MENIPIS (DENGAN PENCEGAHAN DUPLIKASI) ==========
         $lowBalanceThreshold = config('business.alerts.low_balance', 500000);
@@ -431,66 +429,76 @@ class DashboardController extends Controller
                 ->exists();
 
             if (!$recentNotification) {
-                \App\Models\Notification::updateOrCreate(
-                    [
-                        'user_id' => $userId,
-                        'type' => 'low_balance',
-                        'created_at' => Carbon::today(),
-                    ],
-                    [
-                        'title' => '⚠️ Saldo Menipis',
-                        'message' => 'Saldo usaha Anda tinggal Rp ' . number_format($currentBalance, 0, ',', '.'),
-                        'is_read' => 'unread',
-                        'data' => json_encode([
-                            'balance' => $currentBalance,
-                            'threshold' => $lowBalanceThreshold,
-                        ]),
-                    ]
-                );
+                \App\Models\Notification::create([
+                    'user_id' => $userId,
+                    'type' => 'low_balance',
+                    'title' => '⚠️ Saldo Menipis',
+                    'message' => 'Saldo usaha Anda tinggal Rp ' . number_format($currentBalance, 0, ',', '.'),
+                    'is_read' => 'unread',
+                    'icon' => 'exclamation-circle',
+                    'bg_color' => 'bg-yellow-50',
+                    'text_color' => 'text-yellow-600',
+                    'data' => json_encode([
+                        'balance' => $currentBalance,
+                        'threshold' => $lowBalanceThreshold,
+                    ]),
+                ]);
             }
         }
 
         // ========== 6. CEK PENCAPAIAN TARGET ==========
         if ($monthProfit >= $targetProfit && $targetProfit > 0) {
-            \App\Models\Notification::updateOrCreate(
-                [
+            // Cek apakah sudah ada notifikasi target tercapai bulan ini
+            $existingNotification = \App\Models\Notification::where('user_id', $userId)
+                ->where('type', 'target_achieved')
+                ->whereMonth('created_at', Carbon::now()->month)
+                ->exists();
+
+            if (!$existingNotification) {
+                \App\Models\Notification::create([
                     'user_id' => $userId,
                     'type' => 'target_achieved',
-                    'created_at' => Carbon::now()->endOfMonth()->toDateString(),
-                ],
-                [
                     'title' => '🎉 Target Tercapai!',
                     'message' => 'Selamat! Target laba bulan ini Rp ' . number_format($targetProfit, 0, ',', '.') . ' sudah tercapai',
                     'is_read' => 'unread',
+                    'icon' => 'trophy',
+                    'bg_color' => 'bg-green-50',
+                    'text_color' => 'text-green-600',
                     'data' => json_encode([
                         'profit' => $monthProfit,
                         'target' => $targetProfit,
                         'percentage' => round(($monthProfit / $targetProfit) * 100),
                     ]),
-                ]
-            );
+                ]);
+            }
         }
 
         // ========== 7. CEK TARGET HAMPIR TERCAPAI (80%) ==========
         $progressPercentage = $targetProfit > 0 ? round(($monthProfit / $targetProfit) * 100) : 0;
         if ($progressPercentage >= 80 && $progressPercentage < 100 && $monthProfit > 0) {
-            \App\Models\Notification::updateOrCreate(
-                [
+            // Cek apakah sudah ada notifikasi progress dalam 7 hari terakhir
+            $existingNotification = \App\Models\Notification::where('user_id', $userId)
+                ->where('type', 'target_progress')
+                ->whereDate('created_at', '>=', Carbon::now()->subDays(7))
+                ->exists();
+
+            if (!$existingNotification) {
+                \App\Models\Notification::create([
                     'user_id' => $userId,
                     'type' => 'target_progress',
-                    'created_at' => Carbon::today(),
-                ],
-                [
                     'title' => '📊 Progress Target',
                     'message' => 'Laba bulan ini sudah mencapai ' . $progressPercentage . '% dari target',
                     'is_read' => 'unread',
+                    'icon' => 'chart-pie',
+                    'bg_color' => 'bg-blue-50',
+                    'text_color' => 'text-blue-600',
                     'data' => json_encode([
                         'profit' => $monthProfit,
                         'target' => $targetProfit,
                         'percentage' => $progressPercentage,
                     ]),
-                ]
-            );
+                ]);
+            }
         }
 
         // ========== 8. CEK TIDAK ADA TRANSAKSI HARI INI ==========
@@ -512,6 +520,9 @@ class DashboardController extends Controller
                     'title' => '📝 Belum Ada Transaksi',
                     'message' => 'Anda belum mencatat transaksi hari ini. Jangan lupa catat pemasukan dan pengeluaran!',
                     'is_read' => 'unread',
+                    'icon' => 'bell',
+                    'bg_color' => 'bg-blue-50',
+                    'text_color' => 'text-blue-600',
                     'data' => json_encode([
                         'date' => $today,
                     ]),
